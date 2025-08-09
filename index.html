@@ -1400,12 +1400,13 @@
             });
         }
         
-        // 결과 표시 함수
+        // displayResults 함수를 모바일 친화적으로 수정
         function displayResults() {
             const resultsSection = document.getElementById('resultsSection');
             const resultsTable = document.getElementById('resultsTable');
             const resultCount = document.getElementById('resultCount');
             const downloadButton = document.getElementById('downloadButton');
+            const theddariButton = document.getElementById('theddariButton');
             
             if (!resultsSection || !resultsTable || results.length === 0) {
                 showNotification('No results to display', 'warning');
@@ -1415,25 +1416,65 @@
             resultsSection.style.display = 'block';
             if (resultCount) resultCount.textContent = results.length;
             if (downloadButton) downloadButton.style.display = 'inline-flex';
+            if (theddariButton) theddariButton.style.display = 'inline-flex';
             
-            // 테이블 생성
+            // 모바일 여부 체크
+            const isMobile = window.innerWidth <= 768;
+            
             resultsTable.innerHTML = results.map(coin => {
+                const rankClass = coin.market_cap_rank <= 10 ? 'top10' : 
+                                coin.market_cap_rank <= 50 ? 'top50' : 
+                                coin.market_cap_rank <= 100 ? 'top100' : '';
+                
                 const priceChangeClass = coin.price_change_24h > 0 ? 'positive' : 
                                         coin.price_change_24h < 0 ? 'negative' : 'neutral';
                 
+                const changeArrow = coin.price_change_24h > 0 ? '▲' : 
+                                  coin.price_change_24h < 0 ? '▼' : '－';
+                
+                // 모바일용 data-label 속성 추가
                 return `
                     <tr>
-                        <td>${coin.market_cap_rank || 'N/A'}</td>
-                        <td>${coin.name}</td>
-                        <td>${coin.symbol}</td>
-                        <td>$${formatPrice(coin.current_price)}</td>
-                        <td>${formatMarketCap(coin.market_cap)}</td>
-                        <td>${formatMarketCap(coin.fully_diluted_valuation)}</td>
-                        <td class="${priceChangeClass}">
-                            ${coin.price_change_24h ? coin.price_change_24h.toFixed(2) + '%' : 'N/A'}
+                        <td data-label="순위">
+                            <span class="rank-badge ${rankClass}">
+                                #${coin.market_cap_rank || 'N/A'}
+                            </span>
                         </td>
-                        <td>${renderContracts(coin)}</td>
-                        <td>${renderExchanges(coin)}</td>
+                        <td data-label="코인명">
+                            <div class="coin-name">${coin.name}</div>
+                        </td>
+                        <td data-label="심볼">
+                            <span class="coin-symbol">${coin.symbol}</span>
+                        </td>
+                        <td data-label="현재가">
+                            <span class="price-display">
+                                $${formatPrice(coin.current_price)}
+                            </span>
+                        </td>
+                        <td data-label="시가총액">
+                            <span class="market-cap-display">
+                                ${formatMarketCap(coin.market_cap)}
+                            </span>
+                        </td>
+                        <td data-label="FDV">
+                            <span class="market-cap-display">
+                                ${formatMarketCap(coin.fully_diluted_valuation)}
+                            </span>
+                        </td>
+                        <td data-label="24시간">
+                            ${coin.price_change_24h !== null ? `
+                                <span class="price-change ${priceChangeClass}">
+                                    <span class="change-arrow">${changeArrow}</span>
+                                    ${Math.abs(coin.price_change_24h).toFixed(2)}%
+                                </span>
+                            ` : '<span class="price-change neutral">－</span>'}
+                        </td>
+                        <td data-label="컨트랙트">
+                            ${renderContracts(coin)}
+                        </td>
+                        <td data-label="거래소">
+                            ${renderExchanges(coin)}
+                        </td>
                     </tr>
                 `;
             }).join('');
@@ -2005,6 +2046,142 @@
             padding: var(--spacing-xl);
         }
 
+        /* ===== 입력 필드 스타일 (누락된 부분) ===== */
+        .input-group {
+            margin-bottom: var(--spacing-lg);
+        }
+
+        .input-label {
+            display: block;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--navy-300);
+            margin-bottom: var(--spacing-sm);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .premium-input {
+            width: 100%;
+            padding: var(--spacing-md) var(--spacing-lg);
+            background: rgba(255, 255, 255, 0.05);
+            border: 2px solid rgba(255, 255, 255, 0.1);
+            border-radius: var(--radius-md);
+            color: var(--gray-100);
+            font-size: 0.95rem;
+            font-weight: 500;
+            transition: all var(--transition-fast);
+            font-family: var(--font-main);
+        }
+
+        .premium-input:focus {
+            outline: none;
+            border-color: var(--navy-400);
+            background: rgba(255, 255, 255, 0.08);
+            box-shadow: 0 0 0 3px rgba(63, 81, 181, 0.2);
+        }
+
+        .premium-input::placeholder {
+            color: var(--gray-500);
+        }
+
+        .input-wrapper {
+            position: relative;
+            display: flex;
+            align-items: center;
+        }
+
+        .input-addon {
+            position: absolute;
+            right: var(--spacing-md);
+            background: transparent;
+            border: none;
+            color: var(--navy-300);
+            cursor: pointer;
+            padding: var(--spacing-xs);
+            transition: all var(--transition-fast);
+        }
+
+        .input-addon:hover {
+            color: var(--navy-100);
+            transform: scale(1.1);
+        }
+
+        /* ===== API 관련 스타일 ===== */
+        .api-key-container {
+            display: flex;
+            flex-direction: column;
+            gap: var(--spacing-lg);
+        }
+
+        .api-actions {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .api-info {
+            padding: var(--spacing-md);
+            background: rgba(59, 130, 246, 0.1);
+            border-radius: var(--radius-md);
+            border: 1px solid rgba(59, 130, 246, 0.2);
+        }
+
+        .button-group {
+            display: flex;
+            gap: var(--spacing-sm);
+        }
+
+        /* ===== 체크박스 ===== */
+        .checkbox-wrapper {
+            display: flex;
+            align-items: center;
+            gap: var(--spacing-sm);
+        }
+
+        .premium-checkbox {
+            width: 20px;
+            height: 20px;
+            accent-color: var(--navy-500);
+        }
+
+        /* ===== 상태 메시지 ===== */
+        .status-message {
+            padding: var(--spacing-sm) var(--spacing-md);
+            border-radius: var(--radius-md);
+            font-size: 0.85rem;
+            font-weight: 500;
+            margin-top: var(--spacing-sm);
+        }
+
+        .status-message.success {
+            background: rgba(16, 185, 129, 0.1);
+            border: 1px solid rgba(16, 185, 129, 0.3);
+            color: var(--success);
+        }
+
+        .status-message.error {
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            color: var(--danger);
+        }
+
+        /* ===== 링크 ===== */
+        .link-primary {
+            color: var(--navy-300);
+            text-decoration: none;
+            font-weight: 600;
+            transition: all var(--transition-fast);
+            display: inline-flex;
+            align-items: center;
+            gap: var(--spacing-xs);
+        }
+
+        .link-primary:hover {
+            color: var(--navy-100);
+            transform: translateX(2px);
+        }
+
         /* ===== 버튼 스타일 ===== */
         .btn {
             display: inline-flex;
@@ -2118,37 +2295,209 @@
             margin: var(--spacing-xl) 0;
         }
 
-        /* ===== 테이블 스타일 ===== */
-        /* 테이블 스타일 추가 */
-        .table-container {
-            overflow-x: auto;
-            border-radius: 12px;
-            background: rgba(0, 0, 0, 0.3);
-            padding: 2px;
-        }
-
+        /* ===== 데이터 테이블 스타일 개선 ===== */
         .data-table {
             width: 100%;
             border-collapse: separate;
             border-spacing: 0;
-            font-size: 0.95rem;
+            font-size: 1.05rem;
+        }
+
+        .data-table thead {
+            background: linear-gradient(135deg, rgba(63, 81, 181, 0.2) 0%, rgba(124, 58, 237, 0.1) 100%);
+            position: sticky;
+            top: 0;
+            z-index: 10;
         }
 
         .data-table th {
-            background: rgba(63, 81, 181, 0.2);
-            padding: 12px 8px;
+            padding: 14px 12px;
             text-align: left;
-            font-weight: 700;
+            font-weight: 800;
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
             color: var(--navy-200);
+            background: linear-gradient(135deg, rgba(63, 81, 181, 0.3) 0%, rgba(124, 58, 237, 0.2) 100%);
+            border-bottom: 2px solid rgba(63, 81, 181, 0.3);
             white-space: nowrap;
-            position: sticky;
-            top: 0;
+        }
+
+        .data-table tbody tr {
+            transition: all var(--transition-fast);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .data-table tbody tr:hover {
+            background: rgba(63, 81, 181, 0.1);
         }
 
         .data-table td {
-            padding: 12px 8px;
+            padding: 16px 12px;
             color: var(--gray-200);
-            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            font-weight: 500;
+            font-size: 1rem;
+            vertical-align: middle;
+        }
+
+        /* 순위 배지 */
+        .rank-badge {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0.05) 100%);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: var(--radius-md);
+            padding: 8px 14px;
+            font-weight: 800;
+            font-size: 1.1rem;
+            min-width: 60px;
+        }
+
+        .rank-badge.top10 {
+            background: linear-gradient(135deg, rgba(255, 215, 0, 0.2) 0%, rgba(255, 215, 0, 0.1) 100%);
+            border-color: rgba(255, 215, 0, 0.5);
+            color: #FFD700;
+        }
+
+        .rank-badge.top50 {
+            background: linear-gradient(135deg, rgba(192, 192, 192, 0.2) 0%, rgba(192, 192, 192, 0.1) 100%);
+            border-color: rgba(192, 192, 192, 0.5);
+            color: #C0C0C0;
+        }
+
+        .rank-badge.top100 {
+            background: linear-gradient(135deg, rgba(205, 127, 50, 0.2) 0%, rgba(205, 127, 50, 0.1) 100%);
+            border-color: rgba(205, 127, 50, 0.5);
+            color: #CD7F32;
+        }
+
+        /* 코인 정보 */
+        .coin-name {
+            font-weight: 800;
+            font-size: 1.15rem;
+            color: var(--gray-100);
+            margin-bottom: 4px;
+        }
+
+        .coin-symbol {
+            font-family: var(--font-mono);
+            font-weight: 700;
+            font-size: 1.05rem;
+            color: var(--navy-200);
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+        }
+
+        /* 가격 표시 */
+        .price-display {
+            font-family: var(--font-mono);
+            font-weight: 800;
+            font-size: 1.3rem;
+            color: #FFFFFF;
+        }
+
+        .market-cap-display {
+            font-family: var(--font-mono);
+            font-weight: 700;
+            font-size: 1.15rem;
+            color: var(--gray-100);
+        }
+
+        /* 변화율 스타일 */
+        .price-change {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 14px;
+            border-radius: 8px;
+            font-weight: 800;
+            font-size: 1.1rem;
+        }
+
+        .price-change.positive {
+            background: linear-gradient(135deg, rgba(16, 185, 129, 0.3) 0%, rgba(16, 185, 129, 0.2) 100%);
+            color: #10F981;
+            border: 2px solid rgba(16, 185, 129, 0.5);
+        }
+
+        .price-change.negative {
+            background: linear-gradient(135deg, rgba(239, 68, 68, 0.3) 0%, rgba(239, 68, 68, 0.2) 100%);
+            color: #FF6B6B;
+            border: 2px solid rgba(239, 68, 68, 0.5);
+        }
+
+        .price-change.neutral {
+            background: linear-gradient(135deg, rgba(156, 163, 175, 0.2) 0%, rgba(156, 163, 175, 0.1) 100%);
+            color: var(--gray-400);
+            border: 1px solid rgba(156, 163, 175, 0.3);
+        }
+
+        .change-arrow {
+            font-size: 0.8rem;
+        }
+
+        /* 모바일 전용 테이블 카드 뷰 */
+        @media (max-width: 768px) {
+            .table-container {
+                padding: 0;
+                background: transparent;
+            }
+            
+            .data-table {
+                display: block;
+            }
+            
+            .data-table thead {
+                display: none;
+            }
+            
+            .data-table tbody {
+                display: block;
+            }
+            
+            .data-table tr {
+                display: block;
+                margin-bottom: 15px;
+                background: linear-gradient(135deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.03) 100%);
+                border: 1px solid rgba(255, 255, 255, 0.1);
+                border-radius: 12px;
+                padding: 15px;
+                box-shadow: var(--shadow-md);
+            }
+            
+            .data-table td {
+                display: block;
+                padding: 8px 0;
+                border: none;
+                position: relative;
+                padding-left: 35%;
+            }
+            
+            .data-table td:before {
+                content: attr(data-label);
+                position: absolute;
+                left: 0;
+                width: 30%;
+                font-weight: 700;
+                color: var(--navy-300);
+                font-size: 0.85rem;
+                text-transform: uppercase;
+            }
+            
+            /* 모바일 특별 스타일 */
+            .rank-badge {
+                display: inline-block;
+                margin-left: 0;
+            }
+            
+            .price-display {
+                font-size: 1.1rem;
+            }
+            
+            .market-cap-display {
+                font-size: 1rem;
+            }
         }
 
         .coin-list-grid {
@@ -2562,5 +2911,3 @@
 
 </body>
 </html>
-
-

@@ -1115,10 +1115,43 @@
                 'color: #EC4899; font-size: 12px;'
             );
 
-            // 클라우드 동기화 UI 업데이트
-            setTimeout(() => {
+            // 페이지 로드 시 클라우드 동기화 체크
+            setTimeout(async () => {
+                if (cloudSync && cloudSync.isConfigured()) {
+                    // 클라우드에서 최신 데이터 확인
+                    try {
+                        const token = cloudSync.getToken();
+                        if (token && cloudSync.gistId) {
+                            const response = await fetch(`https://api.github.com/gists/${cloudSync.gistId}`, {
+                                headers: {
+                                    'Authorization': `token ${token}`,
+                                    'Accept': 'application/vnd.github.v3+json'
+                                }
+                            });
+                            
+                            if (response.ok) {
+                                const gist = await response.json();
+                                const content = JSON.parse(gist.files['coingecko_sync.json'].content);
+                                
+                                // 클라우드 데이터가 로컬보다 최신인지 확인
+                                const cloudTime = new Date(content.timestamp);
+                                const localTime = localStorage.getItem('coingecko_memo_time');
+                                
+                                if (!localTime || cloudTime > new Date(localTime)) {
+                                    // 클라우드가 더 최신이면 자동으로 불러오기
+                                    if (confirm('클라우드에 더 최신 데이터가 있습니다. 불러오시겠습니까?')) {
+                                        await cloudSync.loadFromCloud();
+                                    }
+                                }
+                            }
+                        }
+                    } catch (error) {
+                        console.log('Cloud sync check skipped:', error);
+                    }
+                }
+                
                 cloudSync.updateSyncUI();
-            }, 500);
+            }, 1000);
 
             // 자동 동기화 (선택사항 - 10분마다)
             setInterval(() => {
@@ -1559,15 +1592,13 @@
             const saveStatus = document.getElementById('memoSaveStatus');
             
             if (memoArea) {
+                // 로컬 저장
                 localStorage.setItem('coingecko_memo', memoArea.value);
                 localStorage.setItem('coingecko_memo_time', new Date().toISOString());
                 
                 if (saveStatus) {
                     saveStatus.style.display = 'inline-block';
                     saveStatus.textContent = 'Saved!';
-                    setTimeout(() => {
-                        saveStatus.style.display = 'none';
-                    }, 2000);
                 }
                 
                 const now = new Date();
@@ -1578,6 +1609,51 @@
                 }
                 
                 showNotification('메모가 저장되었습니다', 'success');
+                
+                // 🔥 클라우드 자동 동기화 추가
+                if (cloudSync && cloudSync.isConfigured()) {
+                    // 동기화 중 표시
+                    const syncIndicator = document.getElementById('cloudSyncStatus');
+                    if (syncIndicator) {
+                        syncIndicator.innerHTML = '<span style="color: var(--warning);">⏳ 동기화 중...</span>';
+                    }
+                    
+                    cloudSync.saveToCloud().then(success => {
+                        if (success) {
+                            if (saveStatus) {
+                                saveStatus.textContent = '☁️ Synced!';
+                                saveStatus.style.background = 'linear-gradient(135deg, var(--success) 0%, var(--accent-blue) 100%)';
+                            }
+                            if (syncIndicator) {
+                                syncIndicator.innerHTML = '<span style="color: var(--success);">✅ 동기화됨</span>';
+                            }
+                            
+                            // 3초 후 상태 표시 원래대로
+                            setTimeout(() => {
+                                cloudSync.updateSyncUI();
+                            }, 3000);
+                        } else {
+                            console.warn('Cloud sync failed, but local save successful');
+                            if (syncIndicator) {
+                                syncIndicator.innerHTML = '<span style="color: var(--danger);">❌ 동기화 실패</span>';
+                            }
+                        }
+                    }).catch(error => {
+                        console.error('Cloud sync error:', error);
+                        // 클라우드 저장 실패해도 로컬 저장은 유지
+                        if (syncIndicator) {
+                            syncIndicator.innerHTML = '<span style="color: var(--danger);">❌ 동기화 오류</span>';
+                        }
+                    });
+                }
+                
+                // 상태 표시 초기화
+                if (saveStatus) {
+                    setTimeout(() => {
+                        saveStatus.style.display = 'none';
+                        saveStatus.style.background = 'var(--success)';
+                    }, 3000);
+                }
             }
         }
 
@@ -1594,7 +1670,7 @@
             }
             
             memoAutoSaveTimer = setTimeout(() => {
-                saveMemo();
+                saveMemo(); // 이미 수정된 saveMemo가 클라우드 동기화도 처리
             }, 1500);
         }
 

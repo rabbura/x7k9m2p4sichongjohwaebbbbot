@@ -1009,10 +1009,64 @@
         let duplicateResolve = null;
         let memoAutoSaveTimer;
 
+        // ⭐️ iOS PWA 저장소 헬퍼
+        const storage = {
+            setItem: function(key, value) {
+                try {
+                    localStorage.setItem(key, value);
+                    // iOS PWA 대응: 쿠키에도 저장
+                    if (window.navigator.standalone || /iPhone|iPad|iPod/i.test(navigator.userAgent)) {
+                        const expires = new Date();
+                        expires.setTime(expires.getTime() + (365 * 24 * 60 * 60 * 1000));
+                        document.cookie = key + '=' + encodeURIComponent(value) + ';expires=' + expires.toUTCString() + ';path=/';
+                    }
+                } catch (e) {
+                    console.error('Storage error:', e);
+                }
+            },
+            
+            getItem: function(key) {
+                try {
+                    // localStorage 먼저 확인
+                    let value = localStorage.getItem(key);
+                    
+                    // 없으면 쿠키에서 확인
+                    if (!value) {
+                        const nameEQ = key + '=';
+                        const ca = document.cookie.split(';');
+                        for(let i = 0; i < ca.length; i++) {
+                            let c = ca[i];
+                            while (c.charAt(0) === ' ') c = c.substring(1);
+                            if (c.indexOf(nameEQ) === 0) {
+                                value = decodeURIComponent(c.substring(nameEQ.length));
+                                // 쿠키에서 찾았으면 localStorage에도 복구
+                                if (value) {
+                                    try {
+                                        localStorage.setItem(key, value);
+                                    } catch (e) {}
+                                }
+                                break;
+                            }
+                        }
+                    }
+                    return value;
+                } catch (e) {
+                    return null;
+                }
+            },
+            
+            removeItem: function(key) {
+                try {
+                    localStorage.removeItem(key);
+                    document.cookie = key + '=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/';
+                } catch (e) {}
+            }
+        };
+
         // ===== GitHub Gist 클라우드 동기화 시스템 (보안 강화 버전) =====
         class CloudSyncSystem {
             constructor() {
-                this.gistId = localStorage.getItem('gist_sync_id');
+                this.gistId = storage.getItem('gist_sync_id');
                 this.tokenKey = 'github_pat_encrypted_v2';
                 this.rateLimitRemaining = 60;
                 this.rateLimitReset = null;
@@ -1062,7 +1116,7 @@
             }
             
             async setupGitHub() {
-                const existingToken = localStorage.getItem(this.tokenKey);
+                const existingToken = storage.getItem(this.tokenKey);
                 
                 let token;
                 if (existingToken) {
@@ -1091,8 +1145,8 @@
                     if (isValid) {
                         // 토큰 암호화 저장 (읽기 제한)
                         const encryptedToken = encryptToken(token.trim());
-                        localStorage.setItem(this.tokenKey, JSON.stringify(encryptedToken));
-                        localStorage.setItem('token_created_time', new Date().toISOString());
+                                        storage.setItem(this.tokenKey, JSON.stringify(encryptedToken));
+                storage.setItem('token_created_time', new Date().toISOString());
                         
                         await this.initializeGist(token.trim());
                         
@@ -1180,7 +1234,7 @@
                     
                     if (syncGist) {
                         this.gistId = syncGist.id;
-                        localStorage.setItem('gist_sync_id', this.gistId);
+                        storage.setItem('gist_sync_id', this.gistId);
                     } else {
                         const createResponse = await fetch('https://api.github.com/gists', {
                             method: 'POST',
@@ -1208,7 +1262,7 @@
                         
                         const newGist = await createResponse.json();
                         this.gistId = newGist.id;
-                        localStorage.setItem('gist_sync_id', this.gistId);
+                        storage.setItem('gist_sync_id', this.gistId);
                     }
                 } catch (error) {
                     console.error('Gist initialization error:', error);
@@ -1250,7 +1304,7 @@
                     this.lastSyncTime = Date.now();
                     
                     if (response.ok) {
-                        localStorage.setItem('last_cloud_sync', new Date().toISOString());
+                        storage.setItem('last_cloud_sync', new Date().toISOString());
                         this.updateSyncUI();
                         this.failedAttempts = 0;
                         return true;
@@ -1341,7 +1395,7 @@
                         }
                     }
                     
-                    localStorage.setItem('last_cloud_sync', new Date().toISOString());
+                    storage.setItem('last_cloud_sync', new Date().toISOString());
                     this.updateSyncUI();
                     
                     showNotification(
@@ -1361,7 +1415,7 @@
             
             getToken() {
                 try {
-                    const encrypted = localStorage.getItem(this.tokenKey);
+                    const encrypted = storage.getItem(this.tokenKey);
                     if (!encrypted) return null;
                     
                     const tokenObj = JSON.parse(encrypted);
@@ -1468,7 +1522,7 @@
             updateSyncUI() {
                 const statusEl = document.getElementById('cloudSyncStatus');
                 if (statusEl) {
-                    const lastSync = localStorage.getItem('last_cloud_sync');
+                    const lastSync = storage.getItem('last_cloud_sync');
                     if (lastSync) {
                         const date = new Date(lastSync);
                         const now = new Date();
@@ -1492,10 +1546,10 @@
             
             async disconnect() {
                 if (confirm('GitHub 연동을 해제하시겠습니까?\n(클라우드 데이터는 유지됩니다)')) {
-                    localStorage.removeItem(this.tokenKey);
-                    localStorage.removeItem('gist_sync_id');
-                    localStorage.removeItem('last_cloud_sync');
-                    localStorage.removeItem('token_created_time');
+                                    storage.removeItem(this.tokenKey);
+                storage.removeItem('gist_sync_id');
+                storage.removeItem('last_cloud_sync');
+                storage.removeItem('token_created_time');
                     this.gistId = null;
                     this.failedAttempts = 0;
                     
@@ -1753,7 +1807,7 @@
             // 토큰 만료 체크 (페이지 로드 시)
             setTimeout(() => {
                 if (cloudSync && cloudSync.isConfigured()) {
-                    const tokenData = localStorage.getItem(cloudSync.tokenKey);
+                    const tokenData = storage.getItem(cloudSync.tokenKey);
                     if (tokenData) {
                         try {
                             const tokenObj = JSON.parse(tokenData);
@@ -1902,7 +1956,7 @@
 
         // ===== API 키 관리 =====
         function loadSavedApiKey() {
-            const encryptedKey = localStorage.getItem('ck_data');
+            const encryptedKey = storage.getItem('ck_data');
             const apiKeyInput = document.getElementById('apiKey');
             const saveCheckbox = document.getElementById('saveApiKey');
             const statusDiv = document.getElementById('apiKeyStatus');
@@ -1938,13 +1992,13 @@
                 }
             } else {
                 // 구버전 호환성 체크
-                const oldKey = localStorage.getItem('coingecko_api_key');
+                const oldKey = storage.getItem('coingecko_api_key');
                 if (oldKey && apiKeyInput) {
                     apiKeyInput.value = oldKey;
                     // 구버전 키를 새 방식으로 마이그레이션
                     const encrypted = encryptData(oldKey);
-                    localStorage.setItem('ck_data', encrypted);
-                    localStorage.removeItem('coingecko_api_key');
+                    storage.setItem('ck_data', encrypted);
+                    storage.removeItem('coingecko_api_key');
                     
                     if (saveCheckbox) saveCheckbox.checked = true;
                     toggleSaveApiKey();
@@ -1968,7 +2022,7 @@
             
             if (saveCheckbox && saveCheckbox.checked) {
                 if (saveButton) saveButton.style.display = 'inline-flex';
-                const hasSavedKey = localStorage.getItem('ck_data');
+                const hasSavedKey = storage.getItem('ck_data');
                 if (hasSavedKey && deleteButton) {
                     deleteButton.style.display = 'inline-flex';
                 }
@@ -1991,7 +2045,7 @@
             const apiKey = apiKeyInput.value.trim();
             // 암호화하여 저장
             const encrypted = encryptData(apiKey);
-            localStorage.setItem('ck_data', encrypted);
+                            storage.setItem('ck_data', encrypted);
             
             // 입력 필드 보호 모드로 변경
             apiKeyInput.style.color = 'transparent';
@@ -2025,8 +2079,8 @@
 
         function deleteApiKey() {
             if (confirm('Are you sure you want to delete the saved API key?')) {
-                localStorage.removeItem('ck_data');
-                localStorage.removeItem('coingecko_api_key'); // 구버전 호환
+                            storage.removeItem('ck_data');
+            storage.removeItem('coingecko_api_key'); // 구버전 호환
                 
                 const apiKeyInput = document.getElementById('apiKey');
                 const saveCheckbox = document.getElementById('saveApiKey');
@@ -2325,9 +2379,9 @@
 
         // ===== 메모 기능 =====
         function loadMemo() {
-            const savedMemo = localStorage.getItem('coingecko_memo');
+            const savedMemo = storage.getItem('coingecko_memo');
             const memoArea = document.getElementById('memoArea');
-            const lastSaved = localStorage.getItem('coingecko_memo_time');
+            const lastSaved = storage.getItem('coingecko_memo_time');
             
             if (savedMemo && memoArea) {
                 memoArea.value = savedMemo;
@@ -2379,8 +2433,8 @@
                 }
                 
                 // 로컬 저장
-                localStorage.setItem('coingecko_memo', sanitizedMemo);
-                localStorage.setItem('coingecko_memo_time', new Date().toISOString());
+                            storage.setItem('coingecko_memo', sanitizedMemo);
+            storage.setItem('coingecko_memo_time', new Date().toISOString());
                 
                 if (saveStatus) {
                     saveStatus.style.display = 'inline-block';
@@ -2490,8 +2544,8 @@
                 const memoArea = document.getElementById('memoArea');
                 if (memoArea) {
                     memoArea.value = '';
-                    localStorage.removeItem('coingecko_memo');
-                    localStorage.removeItem('coingecko_memo_time');
+                                storage.removeItem('coingecko_memo');
+            storage.removeItem('coingecko_memo_time');
                     const lastSavedElement = document.getElementById('memoLastSaved');
                     if (lastSavedElement) lastSavedElement.textContent = '';
                     updateCharCount();
@@ -2594,7 +2648,7 @@
                     const content = JSON.parse(gist.files['coingecko_sync.json'].content);
                     
                     const cloudTime = new Date(content.timestamp);
-                    const localTime = localStorage.getItem('coingecko_memo_time');
+                    const localTime = storage.getItem('coingecko_memo_time');
                     
                     // 클라우드가 더 최신이고, 메모가 비어있을 때만 자동 불러오기
                     const memoArea = document.getElementById('memoArea');
@@ -2638,7 +2692,7 @@
             }
             
             if (!apiKeyInput || !apiKeyInput.value.trim()) {
-                const encryptedKey = localStorage.getItem('ck_data');
+                const encryptedKey = storage.getItem('ck_data');
                 if (!encryptedKey) {
                     showNotification('Please enter your API key first', 'error');
                     toggleSection('apiKeyContent');
@@ -2653,7 +2707,7 @@
             
             let apiKey = apiKeyInput.value.trim();
             if (!apiKey) {
-                const encryptedKey = localStorage.getItem('ck_data');
+                const encryptedKey = storage.getItem('ck_data');
                 if (encryptedKey) {
                     apiKey = decryptData(encryptedKey);
                 }
@@ -5103,5 +5157,6 @@
 
 </body>
 </html>
+
 
 

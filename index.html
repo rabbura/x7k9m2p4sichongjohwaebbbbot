@@ -145,7 +145,7 @@
             animation: pulse 1.5s infinite;
             cursor: not-allowed;
         }
-
+        
         /* 모바일 버튼 터치 영역 확대 */
         @media (max-width: 768px) {
             .btn {
@@ -248,6 +248,223 @@
             
             .memo-action-buttons .btn:hover::after {
                 opacity: 1;
+            }
+        }
+        
+        /* 빠른 검색 모바일 스타일 */
+        .search-container {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .search-input-group {
+            flex: 1;
+        }
+
+        .search-input-wrapper {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .search-button-group {
+            display: flex;
+            gap: 10px;
+        }
+
+        .search-btn, .add-btn {
+            flex: 1;
+        }
+
+        .file-button-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .file-btn {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: var(--gray-300);
+            padding: 8px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 0.85rem;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .file-btn:hover {
+            background: rgba(255, 255, 255, 0.1);
+            border-color: var(--navy-400);
+        }
+
+        .file-btn-text {
+            display: inline;
+        }
+
+        .search-hint {
+            margin-top: 10px;
+            font-size: 0.8rem;
+            color: var(--gray-400);
+        }
+
+        .hint-desktop {
+            display: inline;
+        }
+
+        .hint-mobile {
+            display: none;
+        }
+
+        /* 모바일 디바이스 최적화 */
+        .mobile-device {
+            -webkit-text-size-adjust: 100%;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .mobile-device input[type="text"],
+        .mobile-device input[type="password"] {
+            font-size: 16px !important; /* 자동 줌 방지 */
+        }
+
+        /* 가상 키보드 대응 */
+        .keyboard-open {
+            height: 100vh;
+            height: 100dvh; /* Dynamic viewport height */
+        }
+
+        .keyboard-open .container-wrapper {
+            padding-bottom: 0;
+        }
+
+        .keyboard-open .modal-content {
+            max-height: 60vh;
+            overflow-y: auto;
+        }
+
+        /* 사용 가이드 스타일 */
+        .tip-desktop { display: inline; }
+        .tip-mobile { display: none; }
+        .mobile-only-guide { display: none; }
+
+        @media (max-width: 768px) {
+            .usage-grid {
+                grid-template-columns: 1fr !important;
+                gap: 15px !important;
+            }
+            
+            .tip-desktop { display: none; }
+            .tip-mobile { display: inline; }
+            .mobile-only-guide { display: block !important; }
+        }
+
+        /* 모바일 최적화 */
+        @media (max-width: 768px) {
+            .search-input-wrapper {
+                flex-direction: column;
+            }
+            
+            .search-btn-text {
+                display: none;
+            }
+            
+            .add-btn-text {
+                display: none;
+            }
+            
+            .file-btn {
+                padding: 10px;
+                min-width: 44px;
+                justify-content: center;
+            }
+            
+            .file-btn-text {
+                display: none;
+            }
+            
+            .file-btn-icon {
+                font-size: 1.2rem;
+            }
+            
+            .hint-desktop {
+                display: none;
+            }
+            
+            .hint-mobile {
+                display: inline;
+            }
+            
+            /* 모바일 결과 카드 개선 */
+            .data-table tr {
+                padding: 12px !important;
+            }
+            
+            .data-table td {
+                padding: 6px 0 !important;
+            }
+            
+            .data-table td:before {
+                font-size: 0.75rem !important;
+                font-weight: 600 !important;
+                color: var(--navy-300) !important;
+            }
+            
+            /* 거래소 목록 컴팩트하게 */
+            .exchange-list-mobile {
+                display: grid !important;
+                grid-template-columns: 1fr 1fr !important;
+                gap: 4px !important;
+                font-size: 0.75rem !important;
+            }
+            
+            .exchange-item-mobile {
+                padding: 4px 6px !important;
+                font-size: 0.7rem !important;
+                white-space: nowrap !important;
+                overflow: hidden !important;
+                text-overflow: ellipsis !important;
+            }
+            
+            /* 컨트랙트 주소 간소화 */
+            .contract-address {
+                font-size: 0.75rem !important;
+                padding: 4px 8px !important;
+            }
+            
+            /* 가격 표시 크기 조정 */
+            .price-display {
+                font-size: 1rem !important;
+            }
+            
+            .market-cap-display {
+                font-size: 0.9rem !important;
+            }
+            
+            /* 순위 배지 축소 */
+            .rank-badge {
+                padding: 6px 10px !important;
+                font-size: 0.9rem !important;
+                min-width: 50px !important;
+            }
+        }
+
+        /* 태블릿 */
+        @media (min-width: 769px) and (max-width: 1024px) {
+            .search-input-wrapper {
+                flex-direction: row;
+                gap: 10px;
+            }
+            
+            .search-button-group {
+                flex-direction: row;
+            }
+            
+            .file-btn-text {
+                display: inline;
             }
         }
         
@@ -497,7 +714,7 @@
                 </div>
             </div>
 
-            <!-- 데이터 입력 카드 - 간소화 버전 -->
+            <!-- 빠른 검색 카드 -->
             <div class="card premium-card">
                 <div class="card-header">
                     <div class="card-title">
@@ -506,40 +723,47 @@
                     </div>
                 </div>
                 <div class="card-content" style="padding: 20px;">
-                    <div style="display: flex; gap: 15px; align-items: flex-end; flex-wrap: wrap;">
+                    <div class="search-container">
                         <!-- 직접 입력 -->
-                        <div style="flex: 1; min-width: 200px;">
+                        <div class="search-input-group">
                             <label class="input-label">코인 심볼/ID 입력</label>
-                            <div style="display: flex; gap: 10px;">
-                                <input type="text" id="newCoin" class="premium-input" placeholder="예: BTC, ethereum, SOL">
-                                <button class="btn btn-primary" onclick="addCoinAndSearch()">
-                                    🔍 바로 조회
+                            <div class="search-input-wrapper">
+                                <input type="text" id="newCoin" class="premium-input" 
+                                       placeholder="예: BTC, ethereum, SOL"
+                                       onkeypress="handleEnterKey(event)">
+                                <div class="search-button-group">
+                                    <button class="btn btn-primary search-btn" onclick="addCoinAndSearch()">
+                                        <span class="search-btn-icon">🔍</span>
+                                        <span class="search-btn-text">바로 조회</span>
                                 </button>
-                                <button class="btn btn-secondary" onclick="addCoin()">
-                                    ➕ 추가
+                                    <button class="btn btn-secondary add-btn" onclick="addCoin()">
+                                        <span class="add-btn-icon">➕</span>
+                                        <span class="add-btn-text">추가</span>
                                 </button>
                             </div>
                         </div>
-                        
-                        <!-- 파일 업로드 버튼 -->
-                        <div>
-                            <button class="btn btn-outline" onclick="document.getElementById('fileInput').click()">
-                                📁 파일 업로드
-                            </button>
-                            <input type="file" id="fileInput" class="hidden" style="display: none;" accept=".csv,.txt,.xlsx">
                         </div>
                         
-                        <!-- 샘플 다운로드 -->
-                        <div>
-                            <button class="btn btn-outline" onclick="downloadSampleCSV()">
-                                📄 샘플 다운
+                        <!-- 파일 관련 버튼 (모바일에서 작게) -->
+                        <div class="file-button-group">
+                            <button class="file-btn" onclick="document.getElementById('fileInput').click()" 
+                                    title="파일 업로드">
+                                <span class="file-btn-icon">📁</span>
+                                <span class="file-btn-text">파일</span>
+                            </button>
+                            <button class="file-btn" onclick="downloadSampleCSV()" 
+                                    title="샘플 다운로드">
+                                <span class="file-btn-icon">📄</span>
+                                <span class="file-btn-text">샘플</span>
                             </button>
                         </div>
+                        <input type="file" id="fileInput" class="hidden" style="display: none;" accept=".csv,.txt,.xlsx">
                     </div>
                     
-                    <!-- 간단한 힌트 -->
-                    <div style="margin-top: 10px; font-size: 0.8rem; color: var(--gray-400);">
-                        💡 Enter: 바로 조회 | Shift+Enter: 목록 추가 | 여러 개 조회 시 파일 업로드 사용
+                    <!-- 힌트 -->
+                    <div class="search-hint">
+                        💡 <span class="hint-desktop">Enter: 바로 조회 | Shift+Enter: 목록 추가</span>
+                        <span class="hint-mobile">여러 코인 조회 시 목록에 추가 후 조회</span>
                     </div>
                 </div>
             </div>
@@ -732,29 +956,43 @@
                         <div>
                             <h3 style="color: var(--navy-300); font-weight: 700; margin-bottom: 10px;">📝 기본 사용법</h3>
                             <ol style="color: var(--gray-300); font-size: 0.9rem; line-height: 1.8;">
-                                <li>1️⃣ CoinGecko API 키 입력 (무료 발급 가능)</li>
-                                <li>2️⃣ 코인 심볼/ID 입력 또는 파일 업로드</li>
-                                <li>3️⃣ "코인 정보 조회" 버튼 클릭</li>
+                                <li>1️⃣ CoinGecko API 키 입력 (무료 발급)</li>
+                                <li>2️⃣ 코인 심볼/ID 입력 후 바로 조회</li>
+                                <li>3️⃣ 여러 코인: 추가 버튼으로 목록 생성</li>
                                 <li>4️⃣ 결과 확인 및 CSV 다운로드</li>
+                                <li>5️⃣ 더따리 버튼으로 상세 정보 확인</li>
                             </ol>
                         </div>
                         <div>
-                            <h3 style="color: var(--navy-300); font-weight: 700; margin-bottom: 10px;">⚡ 단축키</h3>
+                            <h3 style="color: var(--navy-300); font-weight: 700; margin-bottom: 10px;">☁️ 클라우드 동기화</h3>
                             <ul style="color: var(--gray-300); font-size: 0.9rem; line-height: 1.8;">
+                                <li>• GitHub 연동으로 모든 기기 동기화</li>
+                                <li>• 메모 자동 저장 및 불러오기</li>
                                 <li>• <kbd>Enter</kbd> : 바로 조회</li>
                                 <li>• <kbd>Shift + Enter</kbd> : 목록에 추가</li>
                                 <li>• 컨트랙트 주소 클릭 : 자동 복사</li>
-                                <li>• 드래그 앤 드롭 : 파일 업로드</li>
                             </ul>
                         </div>
                     </div>
+                    
                     <div style="margin-top: 20px; padding: 15px; background: rgba(59, 130, 246, 0.1); border-radius: 8px; border: 1px solid rgba(59, 130, 246, 0.2);">
                         <p style="color: var(--gray-200); font-size: 0.85rem;">
-                            💡 <strong>Tip:</strong> 무료 API는 월 10,000회 호출 가능합니다. 
-                            한 번에 1-10개 코인 조회를 권장합니다.
+                            💡 <strong>Tip:</strong> 
+                            <span class="tip-desktop">무료 API는 월 10,000회 호출 가능. 한 번에 1-10개 코인 조회 권장.</span>
+                            <span class="tip-mobile">API 키 저장 후 클라우드 동기화로 편리하게 사용하세요.</span>
                             <a href="https://www.coingecko.com/en/api/pricing" target="_blank" style="color: var(--navy-300); text-decoration: underline; margin-left: 5px;">
-                                API 키 발급하기 →
+                                API 키 발급 →
                             </a>
+                        </p>
+                    </div>
+                    
+                    <!-- 모바일 전용 안내 -->
+                    <div class="mobile-only-guide" style="display: none; margin-top: 15px; padding: 12px; background: rgba(255, 215, 0, 0.1); border-radius: 8px;">
+                        <p style="color: var(--gray-200); font-size: 0.8rem;">
+                            📱 <strong>모바일 사용 팁:</strong><br>
+                            • 아이콘 버튼으로 빠른 조작<br>
+                            • 결과는 카드 형식으로 보기 편함<br>
+                            • 메모는 클라우드 동기화로 실시간 연동
                         </p>
                     </div>
                 </div>
@@ -1291,7 +1529,7 @@
             
             return final;
         }
-
+        
         function decryptData(encrypted) {
             if (!encrypted) return null;
             
@@ -1535,22 +1773,7 @@
             // 드래그 앤 드롭 초기화
             initDragAndDrop();
             
-            // Enter 키 이벤트
-            const newCoinInput = document.getElementById('newCoin');
-            if (newCoinInput) {
-                newCoinInput.addEventListener('keypress', function(e) {
-                    if (e.key === 'Enter') {
-                        e.preventDefault();
-                        if (e.shiftKey) {
-                            addCoin();
-                        } else {
-                            addCoinAndSearch();
-                        }
-                    }
-                });
-            }
-            
-            // 파일 업로드 이벤트
+            // 파일 업로드 이벤트 (한 번만)
             const fileInput = document.getElementById('fileInput');
             if (fileInput) {
                 fileInput.addEventListener('change', handleFileUpload);
@@ -1562,11 +1785,23 @@
                 document.body.classList.add('ios-standalone');
             }
             
-            // 모바일 감지 및 최적화
+            // 모바일 디바이스 체크 및 최적화
             const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
             if (isMobile) {
                 document.body.classList.add('mobile-device');
+                
+                // 모바일 전용 최적화
                 optimizeForMobile();
+                
+                // 가상 키보드 대응
+                if (window.visualViewport) {
+                    window.visualViewport.addEventListener('resize', () => {
+                        const hasKeyboard = window.visualViewport.height < window.screen.height * 0.75;
+                        document.body.classList.toggle('keyboard-open', hasKeyboard);
+                    });
+                }
+                
+                console.log('📱 Mobile optimizations applied');
             }
             
             // 주기적 시간 업데이트
@@ -1622,6 +1857,18 @@
                 }
             }, 600000); // 10분
         });
+
+        // ===== 입력 처리 함수 =====
+        function handleEnterKey(event) {
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                if (event.shiftKey) {
+                    addCoin();
+                } else {
+                    addCoinAndSearch();
+                }
+            }
+        }
 
         // ===== 시간 업데이트 =====
         function updateLastTime() {
@@ -1933,6 +2180,13 @@
                 setTimeout(() => {
                     fetchCoinData();
                 }, 100);
+            } else {
+                // 입력이 없으면 기존 목록으로 조회
+                if (coins.length > 0) {
+                    fetchCoinData();
+                } else {
+                    showNotification('코인을 입력하거나 목록에 추가하세요', 'warning');
+                }
             }
         }
 
@@ -2362,9 +2616,26 @@
         // 여기에 추가되어야 하지만, 이미 정의된 것들과 중복되지 않도록 주의
         
         // ===== API 호출 함수들 =====
+        // 원본 fetchCoinData 함수 저장
+        const originalFetchCoinData = fetchCoinData;
+        
+        // fetchCoinData 함수 재정의
         async function fetchCoinData() {
             const apiKeyInput = document.getElementById('apiKey');
             const fetchButton = document.getElementById('fetchButton');
+            const newCoinInput = document.getElementById('newCoin');
+            
+            // 입력 필드에 값이 있으면 자동으로 추가
+            if (newCoinInput && newCoinInput.value.trim()) {
+                const newCoin = newCoinInput.value.trim().toLowerCase().replace(/\s+/g, '-');
+                if (!validateCoinInput(newCoin)) {
+                    showNotification('잘못된 코인 형식입니다', 'error');
+                    return;
+                }
+                coins = [cloudSync.sanitizeInput(newCoin)]; // 단일 조회로 변경
+                newCoinInput.value = '';
+                updateCoinList();
+            }
             
             if (!apiKeyInput || !apiKeyInput.value.trim()) {
                 const encryptedKey = localStorage.getItem('ck_data');
@@ -2857,7 +3128,7 @@
                     }
                     
                     return { id: coinId, contracts };
-                } catch (error) {
+            } catch (error) {
                     console.warn(`Error fetching details for ${coinId}:`, error);
                     return { id: coinId, contracts: [] };
                 }
@@ -3002,9 +3273,37 @@
                         <td data-label="거래소">
                             ${renderExchanges(coin)}
                         </td>
-                    </tr>
+                </tr>
                 `;
             }).join('');
+            
+            // 결과 표시 후 자동 스크롤 (모바일 최적화)
+            setTimeout(() => {
+                const resultsSection = document.getElementById('resultsSection');
+                if (resultsSection) {
+                    // 모바일 여부 체크
+                    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+                    
+                    if (isMobile) {
+                        // 모바일: 결과 섹션 상단이 화면 상단에 오도록
+                        resultsSection.scrollIntoView({ 
+                            behavior: 'smooth', 
+                            block: 'start'
+                        });
+                        
+                        // 추가로 약간 위로 스크롤 (헤더 고려)
+                        setTimeout(() => {
+                            window.scrollBy(0, -20);
+                        }, 500);
+                    } else {
+                        // 데스크톱: 기존대로
+                        resultsSection.scrollIntoView({ 
+                            behavior: 'smooth', 
+                            block: 'start' 
+                        });
+                    }
+                }
+            }, 100);
         }
 
         // 가격 포맷팅
@@ -3079,47 +3378,59 @@
                 return '<span style="color: var(--gray-500); font-size: 0.8rem;">N/A</span>';
             }
             
-            const firstFive = coin.exchanges.slice(0, 5);
-            const secondFive = coin.exchanges.slice(5, 10);
+            const isMobile = window.innerWidth <= 768;
             
-            return `
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
-                    <!-- Top 1-5 -->
-                    <div>
-                        ${firstFive.map((exchange, index) => `
-                            <div style="
-                                background: linear-gradient(135deg, rgba(59, 130, 246, 0.2) 0%, rgba(59, 130, 246, 0.1) 100%);
-                                border: 1px solid rgba(59, 130, 246, 0.4);
-                                border-radius: 6px;
-                                padding: 6px 10px;
-                                font-size: 0.9rem;
-                                margin-bottom: 4px;
+            if (isMobile) {
+                // 모바일: 컴팩트한 2열 그리드
+                return `
+                    <div class="exchange-list-mobile" style="
+                        display: grid;
+                        grid-template-columns: 1fr 1fr;
+                        gap: 3px;
+                        font-size: 0.7rem;
+                    ">
+                        ${coin.exchanges.slice(0, 10).map((exchange, index) => `
+                            <div class="exchange-item-mobile" style="
+                                background: ${index < 5 ? 
+                                    'linear-gradient(135deg, rgba(59, 130, 246, 0.15) 0%, rgba(59, 130, 246, 0.08) 100%)' : 
+                                    'rgba(59, 130, 246, 0.05)'};
+                                border: 1px solid rgba(59, 130, 246, 0.3);
+                                border-radius: 4px;
+                                padding: 3px 6px;
                                 display: flex;
                                 align-items: center;
-                                gap: 6px;
+                                gap: 3px;
+                                white-space: nowrap;
+                                overflow: hidden;
                             ">
-                                <span style="color: var(--navy-400); font-weight: 700;">
+                                <span style="color: var(--navy-400); font-weight: 700; font-size: 0.65rem;">
                                     ${index + 1}.
                                 </span>
-                                <span style="color: var(--gray-100); font-weight: 600; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
-                                    ${exchange.name}
+                                <span style="color: var(--gray-100); flex: 1; overflow: hidden; text-overflow: ellipsis; font-size: 0.7rem;">
+                                    ${exchange.name.length > 8 ? exchange.name.substring(0, 8) + '..' : exchange.name}
                                 </span>
                                 ${exchange.volumeUSD || exchange.volume ? `
-                                    <span style="color: var(--success); font-size: 0.8rem; font-weight: 600;">
+                                    <span style="color: var(--success); font-size: 0.65rem;">
                                         $${formatVolume(exchange.volumeUSD || exchange.volume)}
                                     </span>
                                 ` : ''}
                             </div>
                         `).join('')}
                     </div>
-                    
-                    <!-- Top 6-10 -->
-                    ${secondFive.length > 0 ? `
+                `;
+            } else {
+                // 데스크톱: 기존 2열 레이아웃
+                const firstFive = coin.exchanges.slice(0, 5);
+                const secondFive = coin.exchanges.slice(5, 10);
+                
+                return `
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                        <!-- Top 1-5 -->
                         <div>
-                            ${secondFive.map((exchange, index) => `
+                            ${firstFive.map((exchange, index) => `
                                 <div style="
-                                    background: linear-gradient(135deg, rgba(59, 130, 246, 0.15) 0%, rgba(59, 130, 246, 0.08) 100%);
-                                    border: 1px solid rgba(59, 130, 246, 0.3);
+                                    background: linear-gradient(135deg, rgba(59, 130, 246, 0.2) 0%, rgba(59, 130, 246, 0.1) 100%);
+                                    border: 1px solid rgba(59, 130, 246, 0.4);
                                     border-radius: 6px;
                                     padding: 6px 10px;
                                     font-size: 0.9rem;
@@ -3129,7 +3440,7 @@
                                     gap: 6px;
                                 ">
                                     <span style="color: var(--navy-400); font-weight: 700;">
-                                        ${index + 6}.
+                                        ${index + 1}.
                                     </span>
                                     <span style="color: var(--gray-100); font-weight: 600; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
                                         ${exchange.name}
@@ -3142,9 +3453,40 @@
                                 </div>
                             `).join('')}
                         </div>
-                    ` : '<div></div>'}
-                </div>
-            `;
+                        
+                        <!-- Top 6-10 -->
+                        ${secondFive.length > 0 ? `
+                            <div>
+                                ${secondFive.map((exchange, index) => `
+                                    <div style="
+                                        background: linear-gradient(135deg, rgba(59, 130, 246, 0.15) 0%, rgba(59, 130, 246, 0.08) 100%);
+                                        border: 1px solid rgba(59, 130, 246, 0.3);
+                                        border-radius: 6px;
+                                        padding: 6px 10px;
+                                        font-size: 0.9rem;
+                                        margin-bottom: 4px;
+                                        display: flex;
+                                        align-items: center;
+                                        gap: 6px;
+                                    ">
+                                        <span style="color: var(--navy-400); font-weight: 700;">
+                                            ${index + 6}.
+                                        </span>
+                                        <span style="color: var(--gray-100); font-weight: 600; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                                            ${exchange.name}
+                                        </span>
+                                        ${exchange.volumeUSD || exchange.volume ? `
+                                            <span style="color: var(--success); font-size: 0.8rem; font-weight: 600;">
+                                                $${formatVolume(exchange.volumeUSD || exchange.volume)}
+                                            </span>
+                                        ` : ''}
+                                    </div>
+                                `).join('')}
+                            </div>
+                        ` : '<div></div>'}
+                    </div>
+                `;
+            }
         }
 
         // 플랫폼 이름 포맷
@@ -3336,8 +3678,8 @@
             if (duplicateResolve) {
                 duplicateResolve(selectedIds);
                 duplicateResolve = null;
-            }
-            
+        }
+        
             pendingDuplicateChoices = [];
         }
 

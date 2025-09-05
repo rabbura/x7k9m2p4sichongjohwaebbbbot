@@ -860,6 +860,8 @@
                                     <th>현재가</th>
                                     <th>시가총액</th>
                                     <th>FDV</th>
+                                    <th>유통량/총공급량</th>
+                                    <th>실시간 시총(추정)</th>
                                     <th>24시간</th>
                                     <th>컨트랙트</th>
                                     <th>주요 거래소<br><span style="font-size: 0.7rem; color: var(--gray-400); font-weight: 400;">(!정확한 거래대금순 거래소 정보는 더따리 조회를 권장합니다.)</span></th>
@@ -3237,6 +3239,11 @@
                 const contractInfo = contractDetails.find(c => c.id === coin.id) || { contracts: [] };
                 const exchangeInfo = exchangeData.find(e => e.id === coin.id) || { exchanges: [] };
                 
+                // 실시간 시가총액 계산 (현재가 * 유통량)
+                const realtimeMarketCap = coin.current_price && coin.circulating_supply 
+                    ? coin.current_price * coin.circulating_supply 
+                    : null;
+                
                 return {
                     id: coin.id,
                     name: coin.name,
@@ -3246,6 +3253,10 @@
                     fully_diluted_valuation: coin.fully_diluted_valuation,
                     market_cap_rank: coin.market_cap_rank,
                     price_change_24h: coin.price_change_percentage_24h,
+                    circulating_supply: coin.circulating_supply,
+                    total_supply: coin.total_supply,
+                    max_supply: coin.max_supply,
+                    realtime_market_cap: realtimeMarketCap,
                     contracts: contractInfo.contracts,
                     exchanges: exchangeInfo.exchanges
                 };
@@ -3284,7 +3295,17 @@
                 const changeArrow = coin.price_change_24h > 0 ? '▲' : 
                                   coin.price_change_24h < 0 ? '▼' : '－';
                 
-                // 모바일용 data-label 속성 추가
+                // 유통량/총공급량 포맷팅 함수
+                const formatSupply = (value) => {
+                    if (!value) return 'N/A';
+                    if (value >= 1e9) return (value / 1e9).toFixed(2) + 'B';
+                    if (value >= 1e6) return (value / 1e6).toFixed(2) + 'M';
+                    if (value >= 1e3) return (value / 1e3).toFixed(2) + 'K';
+                    return value.toFixed(0);
+                };
+                
+                const supplyDisplay = `${formatSupply(coin.circulating_supply)} / ${formatSupply(coin.total_supply || coin.max_supply)}`;
+                
                 return `
                     <tr>
                         <td data-label="순위">
@@ -3311,6 +3332,16 @@
                         <td data-label="FDV">
                             <span class="market-cap-display">
                                 ${formatMarketCap(coin.fully_diluted_valuation)}
+                            </span>
+                        </td>
+                        <td data-label="유통량/총공급량">
+                            <span style="font-size: 0.9rem; color: var(--gray-300);">
+                                ${supplyDisplay}
+                            </span>
+                        </td>
+                        <td data-label="실시간 시총">
+                            <span class="realtime-cap-display" style="color: var(--accent-cyan); font-weight: 700;">
+                                ${formatMarketCap(coin.realtime_market_cap)}
                             </span>
                         </td>
                         <td data-label="24시간">
@@ -3605,6 +3636,9 @@
                 '현재가 (USD)',
                 '시가총액',
                 'FDV',
+                '유통량',
+                '총공급량',
+                '실시간 시총(추정)',
                 '24시간 변화율 (%)',
                 '주요 컨트랙트',
                 '주요 거래소'
@@ -3617,6 +3651,9 @@
                 coin.current_price || 'N/A',
                 formatMarketCap(coin.market_cap).replace('$', ''),
                 formatMarketCap(coin.fully_diluted_valuation).replace('$', ''),
+                coin.circulating_supply || 'N/A',
+                coin.total_supply || coin.max_supply || 'N/A',
+                formatMarketCap(coin.realtime_market_cap).replace('$', ''),
                 coin.price_change_24h ? coin.price_change_24h.toFixed(2) : 'N/A',
                 coin.contracts.length > 0 ? 
                     `"${coin.contracts[0].platform}: ${coin.contracts[0].address}"` : 'N/A',
@@ -4438,6 +4475,88 @@
             vertical-align: middle;
         }
 
+        /* ===== 테이블 스크롤 및 레이아웃 개선 ===== */
+        /* 기존 .table-container 스타일을 이걸로 교체 */
+        .table-container {
+            width: 100%;
+            overflow-x: auto;
+            overflow-y: visible;
+            -webkit-overflow-scrolling: touch;
+            position: relative;
+        }
+
+        .data-table {
+            min-width: 1500px;
+            width: 100%;
+        }
+
+        /* 스크롤바 커스텀 */
+        .table-container::-webkit-scrollbar {
+            height: 10px;
+        }
+
+        .table-container::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 5px;
+        }
+
+        .table-container::-webkit-scrollbar-thumb {
+            background: var(--navy-400);
+            border-radius: 5px;
+        }
+
+        .table-container::-webkit-scrollbar-thumb:hover {
+            background: var(--navy-300);
+        }
+
+        /* 스크롤 힌트 표시 */
+        .table-container::after {
+            content: '← 좌우로 스크롤 →';
+            position: absolute;
+            bottom: -20px;
+            right: 10px;
+            font-size: 0.75rem;
+            color: var(--gray-400);
+            opacity: 0.7;
+        }
+
+        /* 순위와 코인명 고정 (선택사항) */
+        .data-table th:nth-child(1),
+        .data-table th:nth-child(2),
+        .data-table td:nth-child(1),
+        .data-table td:nth-child(2) {
+            position: sticky;
+            left: 0;
+            z-index: 5;
+            background: var(--navy-900);  /* inherit 대신 명확한 색상 지정 */
+            box-shadow: 2px 0 5px rgba(0,0,0,0.1);
+        }
+
+        .data-table th:nth-child(2),
+        .data-table td:nth-child(2) {
+            left: 70px;
+        }
+
+        /* 고정된 컬럼 hover 효과 유지 */
+        .data-table tbody tr:hover td:nth-child(1),
+        .data-table tbody tr:hover td:nth-child(2) {
+            background: rgba(63, 81, 181, 0.1);
+        }
+
+        /* ===== 컬럼 너비 최적화 ===== */
+        /* 각 컬럼별 최적 너비 설정 */
+        .data-table th:nth-child(1) { width: 80px; }  /* 순위 */
+        .data-table th:nth-child(2) { width: 150px; } /* 코인명 */
+        .data-table th:nth-child(3) { width: 80px; }  /* 심볼 */
+        .data-table th:nth-child(4) { width: 120px; } /* 현재가 */
+        .data-table th:nth-child(5) { width: 120px; } /* 시가총액 */
+        .data-table th:nth-child(6) { width: 120px; } /* FDV */
+        .data-table th:nth-child(7) { width: 150px; } /* 유통량/총공급량 */
+        .data-table th:nth-child(8) { width: 130px; } /* 실시간 시총 */
+        .data-table th:nth-child(9) { width: 100px; } /* 24시간 */
+        .data-table th:nth-child(10) { width: 200px; } /* 컨트랙트 */
+        .data-table th:nth-child(11) { min-width: 300px; } /* 거래소 */
+
         /* 순위 배지 */
         .rank-badge {
             display: inline-flex;
@@ -4540,6 +4659,14 @@
             .table-container {
                 padding: 0;
                 background: transparent;
+            }
+            
+            /* 모바일에서는 덜 중요한 컬럼 숨기기 */
+            .data-table th:nth-child(6),  /* FDV */
+            .data-table td:nth-child(6),
+            .data-table th:nth-child(7),  /* 유통량 */
+            .data-table td:nth-child(7) {
+                display: none;
             }
             
             .data-table {
@@ -5157,6 +5284,8 @@
 
 </body>
 </html>
+
+
 
 
 

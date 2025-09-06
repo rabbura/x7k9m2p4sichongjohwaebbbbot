@@ -4597,6 +4597,163 @@
                 }
             }
         }
+
+        // ===== 중복 선택 처리 함수 =====
+        async function handleDuplicateSelection(duplicateChoices, apiKey) {
+            return new Promise(async (resolve) => {
+                const modal = document.getElementById('duplicateModal');
+                const choicesDiv = document.getElementById('duplicateChoices');
+                
+                if (!modal || !choicesDiv) {
+                    console.error('Duplicate modal not found');
+                    resolve([]);
+                    return;
+                }
+                
+                try {
+                    // 변수 선언을 최상단에!
+                    const enrichedChoices = [];
+                    const totalCoins = duplicateChoices.reduce((sum, choice) => sum + choice.matches.length, 0);
+                    let processedCoins = 0;
+                    
+                    // 로딩 표시
+                    choicesDiv.innerHTML = `
+                        <div style="text-align: center; padding: 20px;">
+                            <div style="display: inline-block; width: 40px; height: 40px; border: 3px solid rgba(63, 81, 181, 0.2); border-top-color: var(--navy-500); border-radius: 50%; animation: spin 1s linear infinite;"></div>
+                            <div style="margin-top: 15px; color: var(--gray-300); font-size: 1rem;">
+                                중복된 코인 정보를 가져오는 중...
+                            </div>
+                        </div>
+                    `;
+                    modal.style.display = 'flex';
+                    
+                    // 데이터 처리
+                    for (let choice of duplicateChoices) {
+                        const enrichedMatches = [];
+                        
+                        for (let match of choice.matches) {
+                            let marketData = {};
+                            
+                            try {
+                                processedCoins++;
+                                await new Promise(resolve => setTimeout(resolve, 200));
+                                
+                                const marketResponse = await fetch(
+                                    `https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=${match.id}&x_cg_demo_api_key=${apiKey}`
+                                );
+                                
+                                if (marketResponse.ok) {
+                                    const data = await marketResponse.json();
+                                    if (data && data[0]) {
+                                        marketData = {
+                                            price: data[0].current_price,
+                                            marketCap: data[0].market_cap,
+                                            rank: data[0].market_cap_rank,
+                                            priceChange24h: data[0].price_change_percentage_24h
+                                        };
+                                    }
+                                }
+                            } catch (error) {
+                                console.warn(`Error fetching data for ${match.id}:`, error);
+                            }
+                            
+                            enrichedMatches.push({
+                                ...match,
+                                marketData: marketData
+                            });
+                        }
+                        
+                        enrichedChoices.push({
+                            ticker: choice.ticker,
+                            matches: enrichedMatches
+                        });
+                    }
+                    
+                    // UI 생성
+                    choicesDiv.innerHTML = enrichedChoices.map((choice, index) => `
+                        <div style="margin-bottom: 30px; padding: 20px; background: rgba(255,255,255,0.03); border-radius: 12px;">
+                            <h4 style="color: var(--gray-100); font-size: 1.1rem; margin-bottom: 15px;">
+                                "${choice.ticker.toUpperCase()}" 검색 결과:
+                            </h4>
+                            <div style="display: flex; flex-direction: column; gap: 12px;">
+                                ${choice.matches.map(match => `
+                                    <label style="display: block; padding: 15px; background: rgba(255,255,255,0.05); border: 2px solid rgba(255,255,255,0.1); border-radius: 8px; cursor: pointer;">
+                                        <input type="radio" name="choice_${index}" value="${match.id}" style="margin-right: 10px;">
+                                        <span style="color: var(--gray-100); font-weight: 700;">${match.name}</span>
+                                        <span style="color: var(--gray-400); margin-left: 10px;">(${match.symbol})</span>
+                                        ${match.marketData.rank ? 
+                                            `<span style="margin-left: 10px; color: #FFD700;">#${match.marketData.rank}</span>` : ''
+                                        }
+                                    </label>
+                                `).join('')}
+                            </div>
+                        </div>
+                    `).join('');
+                    
+                    pendingDuplicateChoices = duplicateChoices;
+                    duplicateResolve = resolve;
+                    
+                } catch (error) {
+                    console.error('Error in handleDuplicateSelection:', error);
+                    modal.style.display = 'none';
+                    resolve([]);
+                }
+            });
+        }
+
+        // ===== 실시간 가격 업데이트 함수 =====
+        function updateRealtimePrice(symbol, priceData) {
+            try {
+                const coinRows = document.querySelectorAll('.data-table tbody tr');
+                
+                coinRows.forEach(row => {
+                    const coinSymbolEl = row.querySelector('.coin-symbol');
+                    if (coinSymbolEl && coinSymbolEl.textContent === symbol.toUpperCase()) {
+                        // 가격 업데이트 (기존 코드는 여기에 있을 것)
+                        
+                        // 시가총액 업데이트 추가
+                        const marketCapCell = row.querySelector('td[data-label="시가총액"]');
+                        if (marketCapCell) {
+                            const coin = results.find(c => c.symbol === symbol.toUpperCase());
+                            if (coin && coin.circulating_supply) {
+                                const newMarketCap = priceData.price * coin.circulating_supply;
+                                
+                                // 실시간 시총 부분만 업데이트
+                                let realtimeDiv = marketCapCell.querySelector('.realtime-marketcap');
+                                if (!realtimeDiv) {
+                                    // 처음 생성
+                                    const geckoDiv = marketCapCell.querySelector('div');
+                                    if (geckoDiv) {
+                                        geckoDiv.insertAdjacentHTML('afterend', `
+                                            <div class="realtime-marketcap" style="padding-top: 6px; border-top: 1px solid rgba(255,255,255,0.1);">
+                                                <span style="font-size: 0.7rem; color: var(--accent-cyan); display: block;">실시간 (거래소 기준)</span>
+                                                <span style="color: var(--accent-cyan); font-weight: 700; font-size: 1rem;">
+                                                    ${formatMarketCap(newMarketCap)}
+                                                </span>
+                                            </div>
+                                        `);
+                                    }
+                                } else {
+                                    // 업데이트
+                                    const valueSpan = realtimeDiv.querySelector('span:last-child');
+                                    if (valueSpan) {
+                                        valueSpan.textContent = formatMarketCap(newMarketCap);
+                                        // 색상 애니메이션
+                                        valueSpan.style.transition = 'color 0.3s';
+                                        valueSpan.style.color = '#10F981';
+                                        setTimeout(() => {
+                                            valueSpan.style.color = 'var(--accent-cyan)';
+                                        }, 300);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+            } catch (error) {
+                console.error('가격 업데이트 오류:', symbol, error);
+            }
+        }
     </script>
     <style>
         /* ===== 기본 설정 & 변수 ===== */
@@ -6363,6 +6520,11 @@
 
 </body>
 </html>
+
+
+
+
+
 
 
 

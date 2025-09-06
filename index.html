@@ -2762,10 +2762,10 @@
                     const data = JSON.parse(event.data);
                     const symbol = data.s.replace('USDT', '');
                     
-                    // 실시간 가격 업데이트 (거래소 이름 포함)
+                    // 바이낸스 웹소켓은 항상 '바이낸스'로 표시
                     this.updateRealtimePrice(symbol, {
                         price: parseFloat(data.c),
-                        source: '바이낸스',  // 명확하게 표시
+                        source: '바이낸스',
                         timestamp: Date.now()
                     });
                 };
@@ -2804,6 +2804,7 @@
                     if (data.topic && data.topic.startsWith('tickers.')) {
                         const symbol = data.topic.replace('tickers.', '').replace('USDT', '');
                         
+                        // 바이빗은 '바이빗'으로 표시
                         this.updateRealtimePrice(symbol, {
                             price: parseFloat(data.data.lastPrice),
                             source: '바이빗',
@@ -3669,6 +3670,10 @@
         
         // displayResults 함수를 모바일 친화적으로 수정
         function displayResultsWithRealtimePrice() {
+            // 모바일에서 확인하기 위한 디버그 코드
+            console.log('Device width:', window.innerWidth);
+            console.log('Is mobile:', window.innerWidth <= 768);
+            
             const resultsSection = document.getElementById('resultsSection');
             const resultsTable = document.getElementById('resultsTable');
             const resultCount = document.getElementById('resultCount');

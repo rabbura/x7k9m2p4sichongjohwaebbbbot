@@ -839,6 +839,25 @@
                         <span class="card-icon" style="font-size: 2rem;">📊</span>
                         <h2 style="font-size: 1.5rem;">검색 결과</h2>
                         <span class="badge" id="resultCount" style="font-size: 1rem; padding: 4px 12px;">0</span>
+                        <div id="websocketStatus" style="
+                            display: none;
+                            align-items: center;
+                            gap: 5px;
+                            padding: 5px 10px;
+                            background: rgba(16, 249, 129, 0.1);
+                            border-radius: 20px;
+                            font-size: 0.8rem;
+                            margin-left: 10px;
+                        ">
+                            <span class="pulse-dot" style="
+                                width: 6px;
+                                height: 6px;
+                                background: #10F981;
+                                border-radius: 50%;
+                                animation: pulse 2s infinite;
+                            "></span>
+                            <span>실시간 스트리밍</span>
+                        </div>
                     </div>
                     <div class="result-actions">
                         <a href="https://rabbura-hotwallet.streamlit.app/" target="_blank" class="btn btn-primary" style="font-size: 1rem; padding: 12px 20px;">
@@ -1010,6 +1029,7 @@
         let pendingDuplicateChoices = [];
         let duplicateResolve = null;
         let memoAutoSaveTimer;
+        let realtimePriceSystem; // 실시간 가격 시스템 인스턴스
 
         // ⭐️ iOS PWA 저장소 헬퍼
         const storage = {
@@ -1825,6 +1845,16 @@
             loadSavedApiKey();
             updateLastTime();
             loadMemo();
+            
+            // 실시간 가격 시스템 초기화
+            realtimePriceSystem = new RealtimePriceSystem();
+            
+            // 페이지 종료 시 웹소켓 정리
+            window.addEventListener('beforeunload', () => {
+                if (realtimePriceSystem) {
+                    realtimePriceSystem.stopWebSocketStreams();
+                }
+            });
             
             // 드래그 앤 드롭 초기화
             initDragAndDrop();
@@ -2690,6 +2720,12 @@
                 
                 // 바이빗 웹소켓 (백업)
                 this.connectBybitWebSocket(coins);
+                
+                // 상태 표시기 활성화
+                const statusEl = document.getElementById('websocketStatus');
+                if (statusEl) {
+                    statusEl.style.display = 'inline-flex';
+                }
             }
 
             // 바이낸스 웹소켓
@@ -2714,6 +2750,15 @@
                         source: '바이낸스',
                         timestamp: Date.now()
                     });
+                };
+                
+                ws.onclose = () => {
+                    console.log('바이낸스 웹소켓 연결 끊김, 5초 후 재연결...');
+                    setTimeout(() => {
+                        if (this.websockets.has('binance')) {
+                            this.connectBinanceWebSocket(coins);
+                        }
+                    }, 5000);
                 };
                 
                 ws.onerror = (error) => {
@@ -2754,57 +2799,61 @@
 
             // 가격 업데이트 처리
             updateRealtimePrice(symbol, priceData) {
-                // DOM 직접 업데이트 (새로고침 없이)
-                const coinRows = document.querySelectorAll('.data-table tbody tr');
-                
-                coinRows.forEach(row => {
-                    const coinSymbolEl = row.querySelector('.coin-symbol');
-                    if (coinSymbolEl && coinSymbolEl.textContent === symbol.toUpperCase()) {
-                        // 현재가 셀 찾기
-                        const priceCell = row.querySelector('td[data-label="현재가"]');
-                        if (priceCell) {
-                            const realtimeBox = priceCell.querySelector('.realtime-price-box') || 
-                                               priceCell.querySelector('div[style*="background: rgba(59, 130, 246, 0.1)"]');
-                            
-                            if (realtimeBox) {
-                                // 기존 박스 업데이트
-                                const priceEl = realtimeBox.querySelector('.realtime-price-value') || 
-                                               realtimeBox.querySelector('div[style*="font-family: var(--font-mono)"]');
+                try {
+                    // DOM 직접 업데이트 (새로고침 없이)
+                    const coinRows = document.querySelectorAll('.data-table tbody tr');
+                    
+                    coinRows.forEach(row => {
+                        const coinSymbolEl = row.querySelector('.coin-symbol');
+                        if (coinSymbolEl && coinSymbolEl.textContent === symbol.toUpperCase()) {
+                            // 현재가 셀 찾기
+                            const priceCell = row.querySelector('td[data-label="현재가"]');
+                            if (priceCell) {
+                                const realtimeBox = priceCell.querySelector('.realtime-price-box') || 
+                                                   priceCell.querySelector('div[style*="background: rgba(59, 130, 246, 0.1)"]');
                                 
-                                if (priceEl) {
-                                    const oldPrice = parseFloat(priceEl.textContent.replace('$', '').replace(',', ''));
-                                    const newPrice = priceData.price;
+                                if (realtimeBox) {
+                                    // 기존 박스 업데이트
+                                    const priceEl = realtimeBox.querySelector('.realtime-price-value') || 
+                                                   realtimeBox.querySelector('div[style*="font-family: var(--font-mono)"]');
                                     
-                                    // 가격 변화 애니메이션
-                                    if (oldPrice !== newPrice) {
-                                        priceEl.style.transition = 'all 0.3s';
+                                    if (priceEl) {
+                                        const oldPrice = parseFloat(priceEl.textContent.replace('$', '').replace(',', ''));
+                                        const newPrice = priceData.price;
                                         
-                                        if (newPrice > oldPrice) {
-                                            priceEl.style.color = '#10F981';
-                                            priceEl.style.transform = 'scale(1.05)';
-                                        } else {
-                                            priceEl.style.color = '#FF6B6B';
-                                            priceEl.style.transform = 'scale(0.95)';
+                                        // 가격 변화 애니메이션
+                                        if (oldPrice !== newPrice) {
+                                            priceEl.style.transition = 'all 0.3s';
+                                            
+                                            if (newPrice > oldPrice) {
+                                                priceEl.style.color = '#10F981';
+                                                priceEl.style.transform = 'scale(1.05)';
+                                            } else {
+                                                priceEl.style.color = '#FF6B6B';
+                                                priceEl.style.transform = 'scale(0.95)';
+                                            }
+                                            
+                                            priceEl.textContent = `$${this.formatPrice(newPrice)}`;
+                                            
+                                            // 애니메이션 리셋
+                                            setTimeout(() => {
+                                                priceEl.style.transform = 'scale(1)';
+                                            }, 300);
                                         }
-                                        
-                                        priceEl.textContent = `$${this.formatPrice(newPrice)}`;
-                                        
-                                        // 애니메이션 리셋
-                                        setTimeout(() => {
-                                            priceEl.style.transform = 'scale(1)';
-                                        }, 300);
                                     }
+                                } else {
+                                    // 실시간 박스가 없으면 생성
+                                    this.createRealtimeBox(priceCell, priceData);
                                 }
-                            } else {
-                                // 실시간 박스가 없으면 생성
-                                this.createRealtimeBox(priceCell, priceData);
                             }
+                            
+                            // 실시간 시총도 업데이트
+                            this.updateRealtimeMarketCap(row, symbol, priceData.price);
                         }
-                        
-                        // 실시간 시총도 업데이트
-                        this.updateRealtimeMarketCap(row, symbol, priceData.price);
-                    }
-                });
+                    });
+                } catch (error) {
+                    console.error('가격 업데이트 오류:', symbol, error);
+                }
             }
 
             // 실시간 시총 업데이트
@@ -2841,6 +2890,12 @@
                     }
                 });
                 this.websockets.clear();
+                
+                // 상태 표시기 비활성화
+                const statusEl = document.getElementById('websocketStatus');
+                if (statusEl) {
+                    statusEl.style.display = 'none';
+                }
             }
 
             // 심볼 변환
@@ -2955,9 +3010,36 @@
                 if (value >= 1e3) return '$' + (value / 1e3).toFixed(2) + 'K';
                 return '$' + value.toFixed(0);
             }
+            // 실시간 박스 생성
+            createRealtimeBox(priceCell, priceData) {
+                const realtimeHtml = `
+                    <div class="realtime-price-box" style="
+                        margin-top: 6px; 
+                        padding: 6px; 
+                        background: rgba(59, 130, 246, 0.1); 
+                        border-radius: 6px; 
+                        border: 1px solid rgba(59, 130, 246, 0.3);
+                    ">
+                        <div class="realtime-price-source" style="
+                            font-size: 0.85rem; 
+                            color: var(--gray-300); 
+                            margin-bottom: 2px;
+                        ">
+                            실시간 (${priceData.source})
+                        </div>
+                        <div class="realtime-price-value" style="
+                            font-family: var(--font-mono); 
+                            font-weight: 700; 
+                            color: #10F981; 
+                            font-size: 1rem;
+                        ">
+                            $${this.formatPrice(priceData.price)}
+                        </div>
+                    </div>
+                `;
+                priceCell.insertAdjacentHTML('beforeend', realtimeHtml);
+            }
         }
-
-        const realtimePriceSystem = new RealtimePriceSystem();
 
         // ===== API 호출 함수들 =====
         // 원본 fetchCoinData 함수 저장
@@ -5830,6 +5912,9 @@
 
 </body>
 </html>
+
+
+
 
 
 

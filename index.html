@@ -4673,17 +4673,50 @@
                     choicesDiv.innerHTML = enrichedChoices.map((choice, index) => `
                         <div style="margin-bottom: 30px; padding: 20px; background: rgba(255,255,255,0.03); border-radius: 12px;">
                             <h4 style="color: var(--gray-100); font-size: 1.1rem; margin-bottom: 15px;">
-                                "${choice.ticker.toUpperCase()}" 검색 결과:
+                                "${choice.ticker.toUpperCase()}" 티커를 사용하는 코인 선택:
                             </h4>
                             <div style="display: flex; flex-direction: column; gap: 12px;">
                                 ${choice.matches.map(match => `
                                     <label style="display: block; padding: 15px; background: rgba(255,255,255,0.05); border: 2px solid rgba(255,255,255,0.1); border-radius: 8px; cursor: pointer;">
                                         <input type="radio" name="choice_${index}" value="${match.id}" style="margin-right: 10px;">
-                                        <span style="color: var(--gray-100); font-weight: 700;">${match.name}</span>
-                                        <span style="color: var(--gray-400); margin-left: 10px;">(${match.symbol})</span>
-                                        ${match.marketData.rank ? 
-                                            `<span style="margin-left: 10px; color: #FFD700;">#${match.marketData.rank}</span>` : ''
-                                        }
+                                        <div style="display: inline-block; width: calc(100% - 30px);">
+                                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                                                <div>
+                                                    <span style="color: var(--gray-100); font-weight: 700; font-size: 1rem;">${match.name}</span>
+                                                    <span style="color: var(--gray-400); font-size: 0.85rem; margin-left: 10px;">(${match.id})</span>
+                                                </div>
+                                                ${match.marketData.rank ? `
+                                                    <span style="background: linear-gradient(135deg, rgba(255, 215, 0, 0.2) 0%, rgba(255, 215, 0, 0.1) 100%); color: #FFD700; padding: 4px 10px; border-radius: 6px; font-weight: 700; font-size: 0.9rem;">
+                                                        #${match.marketData.rank}
+                                                    </span>
+                                                ` : ''}
+                                            </div>
+                                            
+                                            ${match.marketData.marketCap ? `
+                                                <div style="display: flex; gap: 20px; margin-bottom: 10px; padding: 8px; background: rgba(0,0,0,0.2); border-radius: 6px;">
+                                                    <div>
+                                                        <span style="color: var(--gray-400); font-size: 0.75rem;">현재가</span>
+                                                        <div style="color: var(--gray-100); font-weight: 700; font-size: 1rem;">
+                                                            $${formatPrice(match.marketData.price)}
+                                                        </div>
+                                                    </div>
+                                                    <div>
+                                                        <span style="color: var(--gray-400); font-size: 0.75rem;">시가총액</span>
+                                                        <div style="color: var(--gray-100); font-weight: 700; font-size: 1rem;">
+                                                            ${formatMarketCap(match.marketData.marketCap)}
+                                                        </div>
+                                                    </div>
+                                                    ${match.marketData.priceChange24h !== undefined ? `
+                                                        <div>
+                                                            <span style="color: var(--gray-400); font-size: 0.75rem;">24h 변화</span>
+                                                            <div style="color: ${match.marketData.priceChange24h >= 0 ? '#10F981' : '#FF6B6B'}; font-weight: 700; font-size: 1rem;">
+                                                                ${match.marketData.priceChange24h >= 0 ? '+' : ''}${match.marketData.priceChange24h.toFixed(2)}%
+                                                            </div>
+                                                        </div>
+                                                    ` : ''}
+                                                </div>
+                                            ` : ''}
+                                        </div>
                                     </label>
                                 `).join('')}
                             </div>
@@ -4709,41 +4742,29 @@
                 coinRows.forEach(row => {
                     const coinSymbolEl = row.querySelector('.coin-symbol');
                     if (coinSymbolEl && coinSymbolEl.textContent === symbol.toUpperCase()) {
-                        // 가격 업데이트 (기존 코드는 여기에 있을 것)
-                        
-                        // 시가총액 업데이트 추가
+                        // 실시간 시총 즉시 업데이트
                         const marketCapCell = row.querySelector('td[data-label="시가총액"]');
                         if (marketCapCell) {
                             const coin = results.find(c => c.symbol === symbol.toUpperCase());
                             if (coin && coin.circulating_supply) {
                                 const newMarketCap = priceData.price * coin.circulating_supply;
                                 
-                                // 실시간 시총 부분만 업데이트
                                 let realtimeDiv = marketCapCell.querySelector('.realtime-marketcap');
                                 if (!realtimeDiv) {
                                     // 처음 생성
-                                    const geckoDiv = marketCapCell.querySelector('div');
-                                    if (geckoDiv) {
-                                        geckoDiv.insertAdjacentHTML('afterend', `
-                                            <div class="realtime-marketcap" style="padding-top: 6px; border-top: 1px solid rgba(255,255,255,0.1);">
-                                                <span style="font-size: 0.7rem; color: var(--accent-cyan); display: block;">실시간 (거래소 기준)</span>
-                                                <span style="color: var(--accent-cyan); font-weight: 700; font-size: 1rem;">
-                                                    ${formatMarketCap(newMarketCap)}
-                                                </span>
-                                            </div>
-                                        `);
-                                    }
+                                    marketCapCell.insertAdjacentHTML('beforeend', `
+                                        <div class="realtime-marketcap" style="padding-top: 6px; border-top: 1px solid rgba(255,255,255,0.1);">
+                                            <span style="font-size: 0.7rem; color: var(--accent-cyan); display: block;">실시간</span>
+                                            <span class="realtime-value" style="color: var(--accent-cyan); font-weight: 700; font-size: 1rem;">
+                                                ${formatMarketCap(newMarketCap)}
+                                            </span>
+                                        </div>
+                                    `);
                                 } else {
-                                    // 업데이트
-                                    const valueSpan = realtimeDiv.querySelector('span:last-child');
-                                    if (valueSpan) {
-                                        valueSpan.textContent = formatMarketCap(newMarketCap);
-                                        // 색상 애니메이션
-                                        valueSpan.style.transition = 'color 0.3s';
-                                        valueSpan.style.color = '#10F981';
-                                        setTimeout(() => {
-                                            valueSpan.style.color = 'var(--accent-cyan)';
-                                        }, 300);
+                                    // 값만 업데이트
+                                    const valueEl = realtimeDiv.querySelector('.realtime-value');
+                                    if (valueEl) {
+                                        valueEl.textContent = formatMarketCap(newMarketCap);
                                     }
                                 }
                             }
@@ -4751,7 +4772,7 @@
                     }
                 });
             } catch (error) {
-                console.error('가격 업데이트 오류:', symbol, error);
+                console.error('Update error:', error);
             }
         }
     </script>
@@ -6520,6 +6541,9 @@
 
 </body>
 </html>
+
+
+
 
 
 

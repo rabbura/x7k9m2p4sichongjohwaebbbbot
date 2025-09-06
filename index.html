@@ -2671,11 +2671,176 @@
         // 나머지 모든 API 관련 함수들 (fetchCoinData, convertTickersToIds 등)은 
         // 여기에 추가되어야 하지만, 이미 정의된 것들과 중복되지 않도록 주의
         
-        // ===== 실시간 거래소 가격 조회 시스템 =====
+        // ===== 실시간 거래소 가격 조회 시스템 (WebSocket 지원) =====
         class RealtimePriceSystem {
             constructor() {
                 this.cache = new Map();
-                this.cacheTimeout = 30000; // 30초 캐시
+                this.cacheTimeout = 30000;
+                this.websockets = new Map(); // 웹소켓 연결 관리
+                this.priceCallbacks = new Map(); // 가격 업데이트 콜백
+            }
+
+            // 웹소켓 연결 시작
+            startWebSocketStreams(coins) {
+                // 기존 연결 정리
+                this.stopWebSocketStreams();
+                
+                // 바이낸스 웹소켓
+                this.connectBinanceWebSocket(coins);
+                
+                // 바이빗 웹소켓 (백업)
+                this.connectBybitWebSocket(coins);
+            }
+
+            // 바이낸스 웹소켓
+            connectBinanceWebSocket(coins) {
+                const symbols = coins.map(coin => 
+                    `${coin.symbol.toLowerCase()}usdt@ticker`
+                ).join('/');
+                
+                const ws = new WebSocket(`wss://stream.binance.com:9443/ws/${symbols}`);
+                
+                ws.onopen = () => {
+                    console.log('바이낸스 웹소켓 연결됨');
+                };
+                
+                ws.onmessage = (event) => {
+                    const data = JSON.parse(event.data);
+                    const symbol = data.s.replace('USDT', '');
+                    
+                    // 실시간 가격 업데이트
+                    this.updateRealtimePrice(symbol, {
+                        price: parseFloat(data.c),
+                        source: '바이낸스',
+                        timestamp: Date.now()
+                    });
+                };
+                
+                ws.onerror = (error) => {
+                    console.log('바이낸스 웹소켓 오류:', error);
+                };
+                
+                this.websockets.set('binance', ws);
+            }
+
+            // 바이빗 웹소켓 (백업)
+            connectBybitWebSocket(coins) {
+                const ws = new WebSocket('wss://stream.bybit.com/v5/public/spot');
+                
+                ws.onopen = () => {
+                    // 구독 메시지 전송
+                    const subscribeMsg = {
+                        op: "subscribe",
+                        args: coins.map(coin => `tickers.${coin.symbol.toUpperCase()}USDT`)
+                    };
+                    ws.send(JSON.stringify(subscribeMsg));
+                };
+                
+                ws.onmessage = (event) => {
+                    const data = JSON.parse(event.data);
+                    if (data.topic && data.topic.startsWith('tickers.')) {
+                        const symbol = data.topic.replace('tickers.', '').replace('USDT', '');
+                        
+                        this.updateRealtimePrice(symbol, {
+                            price: parseFloat(data.data.lastPrice),
+                            source: '바이빗',
+                            timestamp: Date.now()
+                        });
+                    }
+                };
+                
+                this.websockets.set('bybit', ws);
+            }
+
+            // 가격 업데이트 처리
+            updateRealtimePrice(symbol, priceData) {
+                // DOM 직접 업데이트 (새로고침 없이)
+                const coinRows = document.querySelectorAll('.data-table tbody tr');
+                
+                coinRows.forEach(row => {
+                    const coinSymbolEl = row.querySelector('.coin-symbol');
+                    if (coinSymbolEl && coinSymbolEl.textContent === symbol.toUpperCase()) {
+                        // 현재가 셀 찾기
+                        const priceCell = row.querySelector('td[data-label="현재가"]');
+                        if (priceCell) {
+                            const realtimeBox = priceCell.querySelector('.realtime-price-box') || 
+                                               priceCell.querySelector('div[style*="background: rgba(59, 130, 246, 0.1)"]');
+                            
+                            if (realtimeBox) {
+                                // 기존 박스 업데이트
+                                const priceEl = realtimeBox.querySelector('.realtime-price-value') || 
+                                               realtimeBox.querySelector('div[style*="font-family: var(--font-mono)"]');
+                                
+                                if (priceEl) {
+                                    const oldPrice = parseFloat(priceEl.textContent.replace('$', '').replace(',', ''));
+                                    const newPrice = priceData.price;
+                                    
+                                    // 가격 변화 애니메이션
+                                    if (oldPrice !== newPrice) {
+                                        priceEl.style.transition = 'all 0.3s';
+                                        
+                                        if (newPrice > oldPrice) {
+                                            priceEl.style.color = '#10F981';
+                                            priceEl.style.transform = 'scale(1.05)';
+                                        } else {
+                                            priceEl.style.color = '#FF6B6B';
+                                            priceEl.style.transform = 'scale(0.95)';
+                                        }
+                                        
+                                        priceEl.textContent = `$${this.formatPrice(newPrice)}`;
+                                        
+                                        // 애니메이션 리셋
+                                        setTimeout(() => {
+                                            priceEl.style.transform = 'scale(1)';
+                                        }, 300);
+                                    }
+                                }
+                            } else {
+                                // 실시간 박스가 없으면 생성
+                                this.createRealtimeBox(priceCell, priceData);
+                            }
+                        }
+                        
+                        // 실시간 시총도 업데이트
+                        this.updateRealtimeMarketCap(row, symbol, priceData.price);
+                    }
+                });
+            }
+
+            // 실시간 시총 업데이트
+            updateRealtimeMarketCap(row, symbol, price) {
+                const marketCapCell = row.querySelector('td[data-label="실시간 시총"]');
+                if (marketCapCell) {
+                    // results 배열에서 해당 코인 찾기
+                    const coin = results.find(c => c.symbol === symbol.toUpperCase());
+                    if (coin && coin.circulating_supply) {
+                        const newMarketCap = price * coin.circulating_supply;
+                        
+                        const marketCapEl = marketCapCell.querySelector('.realtime-marketcap-value') ||
+                                           marketCapCell.querySelector('div[style*="font-size: 0.9rem"]');
+                        
+                        if (marketCapEl) {
+                            marketCapEl.textContent = this.formatMarketCap(newMarketCap);
+                            
+                            // 변화 애니메이션
+                            marketCapEl.style.transition = 'all 0.3s';
+                            marketCapEl.style.color = '#06B6D4';
+                            setTimeout(() => {
+                                marketCapEl.style.color = '';
+                            }, 300);
+                        }
+                    }
+                }
+            }
+
+            // 웹소켓 연결 종료
+            stopWebSocketStreams() {
+                this.websockets.forEach((ws, key) => {
+                    if (ws.readyState === WebSocket.OPEN) {
+                        ws.close();
+                    }
+                });
+                this.websockets.clear();
             }
 
             // 심볼 변환
@@ -2771,6 +2936,25 @@
                 });
                 return await Promise.all(promises);
             }
+
+            // 헬퍼 함수들
+            formatPrice(price) {
+                if (!price) return 'N/A';
+                if (price < 0.00001) return price.toExponential(2);
+                if (price < 1) return price.toFixed(6);
+                if (price < 100) return price.toFixed(4);
+                if (price < 10000) return price.toFixed(2);
+                return price.toLocaleString('en-US', { maximumFractionDigits: 0 });
+            }
+
+            formatMarketCap(value) {
+                if (!value) return 'N/A';
+                if (value >= 1e12) return '$' + (value / 1e12).toFixed(2) + 'T';
+                if (value >= 1e9) return '$' + (value / 1e9).toFixed(2) + 'B';
+                if (value >= 1e6) return '$' + (value / 1e6).toFixed(2) + 'M';
+                if (value >= 1e3) return '$' + (value / 1e3).toFixed(2) + 'K';
+                return '$' + value.toFixed(0);
+            }
         }
 
         const realtimePriceSystem = new RealtimePriceSystem();
@@ -2781,6 +2965,11 @@
         
         // fetchCoinData 함수 재정의
         async function fetchCoinData() {
+            // 기존 웹소켓 연결 종료
+            if (realtimePriceSystem) {
+                realtimePriceSystem.stopWebSocketStreams();
+            }
+            
             const apiKeyInput = document.getElementById('apiKey');
             const fetchButton = document.getElementById('fetchButton');
             const newCoinInput = document.getElementById('newCoin');
@@ -3534,6 +3723,11 @@
                     }
                 }
             }, 100);
+            
+            // 웹소켓 스트림 시작 (실시간 갱신)
+            realtimePriceSystem.startWebSocketStreams(results);
+            
+            showNotification('실시간 가격 스트리밍 시작됨!', 'success');
             }).catch(error => {
                 console.error('Realtime price error:', error);
                 displayResults(); // 실패시 기존 방식으로 표시
@@ -5609,11 +5803,36 @@
         .copy-success {
             animation: copySuccess 0.3s ease;
         }
+
+        /* 가격 업데이트 애니메이션 */
+        .price-update-flash {
+            animation: priceFlash 0.5s ease;
+        }
+
+        @keyframes priceFlash {
+            0% { background: transparent; }
+            50% { background: rgba(59, 130, 246, 0.3); }
+            100% { background: transparent; }
+        }
+
+        /* 실시간 인디케이터 */
+        .realtime-indicator {
+            width: 6px;
+            height: 6px;
+            background: #10F981;
+            border-radius: 50%;
+            display: inline-block;
+            animation: pulse 2s infinite;
+            margin-left: 5px;
+        }
     </style>
 
 
 </body>
 </html>
+
+
+
 
 
 

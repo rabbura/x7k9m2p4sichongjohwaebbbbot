@@ -2762,10 +2762,10 @@
                     const data = JSON.parse(event.data);
                     const symbol = data.s.replace('USDT', '');
                     
-                    // 실시간 가격 업데이트
+                    // 실시간 가격 업데이트 (거래소 이름 포함)
                     this.updateRealtimePrice(symbol, {
                         price: parseFloat(data.c),
-                        source: '바이낸스',
+                        source: '바이낸스',  // 명확하게 표시
                         timestamp: Date.now()
                     });
                 };
@@ -3810,9 +3810,11 @@
                                             <span style="font-size: 0.7rem; color: var(--gray-400); display: block;">CoinGecko 기준</span>
                                             <span class="market-cap-display">${formatMarketCap(coin.market_cap)}</span>
                                         </div>
-                                        ${realtimeMarketCap ? `
+                                        ${realtimeMarketCap && coin.realtimePrice ? `
                                             <div style="padding-top: 6px; border-top: 1px solid rgba(255,255,255,0.1);">
-                                                <span style="font-size: 0.7rem; color: var(--accent-cyan); display: block;">실시간 (거래소 기준)</span>
+                                                <span style="font-size: 0.7rem; color: var(--accent-cyan); display: block;">
+                                                    ${coin.realtimePrice.source} 기준
+                                                </span>
                                                 <span style="color: var(--accent-cyan); font-weight: 700; font-size: 1rem;">
                                                     ${formatMarketCap(realtimeMarketCap)}
                                                 </span>
@@ -4742,7 +4744,9 @@
                 coinRows.forEach(row => {
                     const coinSymbolEl = row.querySelector('.coin-symbol');
                     if (coinSymbolEl && coinSymbolEl.textContent === symbol.toUpperCase()) {
-                        // 실시간 시총 즉시 업데이트
+                        // ... 기존 가격 업데이트 코드 ...
+                        
+                        // 시가총액 업데이트 (거래소 이름 포함)
                         const marketCapCell = row.querySelector('td[data-label="시가총액"]');
                         if (marketCapCell) {
                             const coin = results.find(c => c.symbol === symbol.toUpperCase());
@@ -4751,18 +4755,24 @@
                                 
                                 let realtimeDiv = marketCapCell.querySelector('.realtime-marketcap');
                                 if (!realtimeDiv) {
-                                    // 처음 생성
                                     marketCapCell.insertAdjacentHTML('beforeend', `
                                         <div class="realtime-marketcap" style="padding-top: 6px; border-top: 1px solid rgba(255,255,255,0.1);">
-                                            <span style="font-size: 0.7rem; color: var(--accent-cyan); display: block;">실시간</span>
+                                            <span style="font-size: 0.7rem; color: var(--accent-cyan); display: block;">
+                                                ${priceData.source || '바이낸스'} 기준
+                                            </span>
                                             <span class="realtime-value" style="color: var(--accent-cyan); font-weight: 700; font-size: 1rem;">
                                                 ${formatMarketCap(newMarketCap)}
                                             </span>
                                         </div>
                                     `);
                                 } else {
-                                    // 값만 업데이트
+                                    // 거래소 이름과 값 업데이트
+                                    const sourceEl = realtimeDiv.querySelector('span:first-child');
                                     const valueEl = realtimeDiv.querySelector('.realtime-value');
+                                    
+                                    if (sourceEl) {
+                                        sourceEl.textContent = `${priceData.source || '바이낸스'} 기준`;
+                                    }
                                     if (valueEl) {
                                         valueEl.textContent = formatMarketCap(newMarketCap);
                                     }
@@ -6541,6 +6551,10 @@
 
 </body>
 </html>
+
+
+
+
 
 
 

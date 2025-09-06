@@ -1890,6 +1890,25 @@
                 console.log('📱 Mobile optimizations applied');
             }
             
+            // 모바일 최적화 (화면 크기 기반)
+            if (window.innerWidth <= 768) {
+                document.body.classList.add('mobile-optimized');
+                
+                // 애니메이션 비활성화
+                const style = document.createElement('style');
+                style.textContent = `
+                    .mobile-optimized * {
+                        animation-duration: 0.2s !important;
+                        transition-duration: 0.2s !important;
+                    }
+                    
+                    .mobile-optimized .price-update-flash {
+                        animation: none !important;
+                    }
+                `;
+                document.head.appendChild(style);
+            }
+            
             // 주기적 시간 업데이트
             setInterval(updateLastTime, 60000); // 1분마다 업데이트
             
@@ -2800,6 +2819,7 @@
             // 가격 업데이트 처리
             updateRealtimePrice(symbol, priceData) {
                 try {
+                    const isMobile = window.innerWidth <= 768;
                     // DOM 직접 업데이트 (새로고침 없이)
                     const coinRows = document.querySelectorAll('.data-table tbody tr');
                     
@@ -2821,24 +2841,19 @@
                                         const oldPrice = parseFloat(priceEl.textContent.replace('$', '').replace(',', ''));
                                         const newPrice = priceData.price;
                                         
-                                        // 가격 변화 애니메이션
+                                        // 가격 변화 처리
                                         if (oldPrice !== newPrice) {
-                                            priceEl.style.transition = 'all 0.3s';
-                                            
-                                            if (newPrice > oldPrice) {
-                                                priceEl.style.color = '#10F981';
-                                                priceEl.style.transform = 'scale(1.05)';
-                                            } else {
-                                                priceEl.style.color = '#FF6B6B';
-                                                priceEl.style.transform = 'scale(0.95)';
+                                            if (!isMobile) {  // 모바일이 아닐 때만 애니메이션
+                                                priceEl.style.transition = 'all 0.3s';
+                                                priceEl.style.transform = newPrice > oldPrice ? 'scale(1.05)' : 'scale(0.95)';
+                                                setTimeout(() => {
+                                                    priceEl.style.transform = 'scale(1)';
+                                                }, 300);
                                             }
                                             
+                                            // 색상은 유지 (시각적 피드백)
+                                            priceEl.style.color = newPrice > oldPrice ? '#10F981' : '#FF6B6B';
                                             priceEl.textContent = `$${this.formatPrice(newPrice)}`;
-                                            
-                                            // 애니메이션 리셋
-                                            setTimeout(() => {
-                                                priceEl.style.transform = 'scale(1)';
-                                            }, 300);
                                         }
                                     }
                                 } else {
@@ -3942,6 +3957,67 @@
                     }
                 }
             }, 100);
+        }
+
+        // 모바일용 간소화된 결과 표시 함수
+        function renderMobileResults(coin) {
+            return `
+                <div class="mobile-result-card">
+                    <div class="mobile-card-header">
+                        <span class="rank-badge">#${coin.market_cap_rank || 'N/A'}</span>
+                        <span class="coin-name">${coin.name}</span>
+                        <span class="coin-symbol">${coin.symbol}</span>
+                    </div>
+                    
+                    <div class="mobile-card-body">
+                        <div class="price-section">
+                            <div class="price-main">
+                                $${formatPrice(coin.current_price)}
+                                ${coin.realtimePrice ? 
+                                    `<span class="realtime-badge">
+                                        $${formatPrice(coin.realtimePrice.price)}
+                                    </span>` : ''
+                                }
+                            </div>
+                        </div>
+                        
+                        <div class="info-grid">
+                            <div class="info-item">
+                                <span class="info-label">시총</span>
+                                <span class="info-value">${formatMarketCap(coin.market_cap)}</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="info-label">공급량</span>
+                                <span class="info-value">${formatSupply(coin.circulating_supply)}</span>
+                            </div>
+                        </div>
+                        
+                        ${coin.contracts.length > 0 ? `
+                            <div class="contract-section">
+                                <span class="contract-label">컨트랙트</span>
+                                <span class="contract-value" onclick="copyToClipboard('${coin.contracts[0].address}', this)">
+                                    ${truncateAddress(coin.contracts[0].address)}
+                                </span>
+                            </div>
+                        ` : ''}
+                    </div>
+                </div>
+            `;
+        }
+
+        // 유틸리티 함수들
+        function formatSupply(value) {
+            if (!value) return 'N/A';
+            if (value >= 1e12) return (value / 1e12).toFixed(1) + 'T';
+            if (value >= 1e9) return (value / 1e9).toFixed(1) + 'B';
+            if (value >= 1e6) return (value / 1e6).toFixed(1) + 'M';
+            if (value >= 1e3) return (value / 1e3).toFixed(1) + 'K';
+            return value.toFixed(0);
+        }
+
+        function truncateAddress(address) {
+            if (!address) return 'N/A';
+            return `${address.slice(0, 6)}...${address.slice(-4)}`;
         }
 
         // 가격 포맷팅
@@ -5329,6 +5405,205 @@
             .market-cap-display {
                 font-size: 1rem;
             }
+            
+            /* 불필요한 컬럼 숨기기 */
+            .data-table th:nth-child(6),  /* FDV */
+            .data-table td:nth-child(6),
+            .data-table th:nth-child(9),  /* 24시간 변화 */
+            .data-table td:nth-child(9),
+            .data-table th:nth-child(11), /* 거래소 목록 */
+            .data-table td:nth-child(11) {
+                display: none;
+            }
+            
+            .data-table tr {
+                display: grid;
+                grid-template-areas:
+                    "rank name name"
+                    "symbol price price"
+                    "marketcap marketcap supply"
+                    "contract contract contract";
+                grid-template-columns: auto 1fr 1fr;
+                gap: 8px;
+                padding: 12px;
+                margin-bottom: 12px;
+                background: linear-gradient(135deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.03) 100%);
+                border: 1px solid rgba(255, 255, 255, 0.1);
+                border-radius: 12px;
+            }
+            
+            /* 각 항목별 그리드 영역 지정 */
+            .data-table td:nth-child(1) { grid-area: rank; }
+            .data-table td:nth-child(2) { grid-area: name; }
+            .data-table td:nth-child(3) { grid-area: symbol; }
+            .data-table td:nth-child(4) { grid-area: price; }
+            .data-table td:nth-child(5) { grid-area: marketcap; }
+            .data-table td:nth-child(7) { grid-area: supply; }
+            .data-table td:nth-child(10) { grid-area: contract; }
+            
+            /* 레이블 스타일 개선 */
+            .data-table td:before {
+                display: block;
+                font-weight: 600;
+                color: var(--navy-300);
+                font-size: 0.7rem;
+                text-transform: uppercase;
+                margin-bottom: 4px;
+            }
+            
+            /* 컴팩트한 실시간 가격 표시 */
+            .data-table td[data-label="현재가"] {
+                display: flex;
+                flex-direction: row;
+                align-items: center;
+                gap: 10px;
+            }
+            
+            .data-table td[data-label="현재가"] > div {
+                display: flex;
+                flex-direction: row;
+                align-items: center;
+                gap: 8px;
+            }
+            
+            /* 실시간 가격 박스 인라인 스타일 */
+            .realtime-price-box {
+                display: inline-flex !important;
+                align-items: center;
+                gap: 5px;
+                padding: 4px 8px !important;
+                background: rgba(59, 130, 246, 0.15) !important;
+                border-radius: 6px !important;
+                margin: 0 !important;
+            }
+            
+            .realtime-price-source {
+                display: none !important; /* 모바일에서 소스 텍스트 숨김 */
+            }
+            
+            .realtime-price-value {
+                font-size: 0.95rem !important;
+                font-weight: 700;
+            }
+            
+            /* 모바일 결과 카드 스타일 */
+            .mobile-result-card {
+                background: linear-gradient(135deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.03) 100%);
+                border: 1px solid rgba(255, 255, 255, 0.1);
+                border-radius: 12px;
+                padding: 15px;
+                margin-bottom: 12px;
+                box-shadow: var(--shadow-md);
+            }
+            
+            .mobile-card-header {
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                margin-bottom: 12px;
+            }
+            
+            .mobile-card-header .rank-badge {
+                margin: 0;
+            }
+            
+            .mobile-card-header .coin-name {
+                font-size: 1.1rem;
+                font-weight: 700;
+                color: var(--gray-100);
+            }
+            
+            .mobile-card-header .coin-symbol {
+                font-size: 0.9rem;
+                color: var(--gray-400);
+                background: rgba(255, 255, 255, 0.1);
+                padding: 2px 6px;
+                border-radius: 4px;
+            }
+            
+            .mobile-card-body {
+                display: flex;
+                flex-direction: column;
+                gap: 12px;
+            }
+            
+            .price-section {
+                border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+                padding-bottom: 12px;
+            }
+            
+            .price-main {
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                font-size: 1.2rem;
+                font-weight: 700;
+                color: var(--gray-100);
+            }
+            
+            .realtime-badge {
+                background: rgba(59, 130, 246, 0.15);
+                color: #60A5FA;
+                padding: 4px 8px;
+                border-radius: 6px;
+                font-size: 0.9rem;
+                font-weight: 600;
+            }
+            
+            .info-grid {
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 12px;
+            }
+            
+            .info-item {
+                display: flex;
+                flex-direction: column;
+                gap: 2px;
+            }
+            
+            .info-label {
+                font-size: 0.7rem;
+                font-weight: 600;
+                color: var(--navy-300);
+                text-transform: uppercase;
+            }
+            
+            .info-value {
+                font-size: 0.95rem;
+                font-weight: 600;
+                color: var(--gray-200);
+            }
+            
+            .contract-section {
+                display: flex;
+                flex-direction: column;
+                gap: 4px;
+                padding-top: 8px;
+                border-top: 1px solid rgba(255, 255, 255, 0.1);
+            }
+            
+            .contract-label {
+                font-size: 0.7rem;
+                font-weight: 600;
+                color: var(--navy-300);
+                text-transform: uppercase;
+            }
+            
+            .contract-value {
+                font-family: var(--font-mono);
+                font-size: 0.85rem;
+                color: var(--gray-300);
+                background: rgba(255, 255, 255, 0.05);
+                padding: 6px 8px;
+                border-radius: 6px;
+                cursor: pointer;
+                transition: all 0.2s;
+            }
+            
+            .contract-value:hover {
+                background: rgba(255, 255, 255, 0.1);
+            }
         }
 
         .coin-list-grid {
@@ -5912,6 +6187,7 @@
 
 </body>
 </html>
+
 
 
 

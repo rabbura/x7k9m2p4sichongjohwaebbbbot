@@ -6,11 +6,11 @@
     
     <!-- 보안 헤더 -->
     <meta http-equiv="Content-Security-Policy" content="
-        default-src 'self' https: data:;
+        default-src 'self' https: wss: data:;
         script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com;
         style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
         font-src 'self' https://fonts.gstatic.com;
-        connect-src 'self' https://api.github.com https://api.coingecko.com;
+        connect-src *;
         img-src 'self' data: https:;
         frame-ancestors 'none';
         form-action 'self';
@@ -5912,6 +5912,7 @@
 
 </body>
 </html>
+
 
 
 

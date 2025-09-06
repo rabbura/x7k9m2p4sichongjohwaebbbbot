@@ -4635,11 +4635,13 @@
                         
                         for (let match of choice.matches) {
                             let marketData = {};
+                            let exchanges = [];
                             
                             try {
                                 processedCoins++;
                                 await new Promise(resolve => setTimeout(resolve, 200));
                                 
+                                // 시장 데이터 가져오기
                                 const marketResponse = await fetch(
                                     `https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=${match.id}&x_cg_demo_api_key=${apiKey}`
                                 );
@@ -4655,13 +4657,39 @@
                                         };
                                     }
                                 }
+                                
+                                // 거래소 정보 가져오기
+                                await new Promise(resolve => setTimeout(resolve, 200));
+                                const tickerResponse = await fetch(
+                                    `https://api.coingecko.com/api/v3/coins/${match.id}/tickers?x_cg_demo_api_key=${apiKey}`
+                                );
+                                
+                                if (tickerResponse.ok) {
+                                    const data = await tickerResponse.json();
+                                    if (data && data.tickers) {
+                                        exchanges = data.tickers
+                                            .filter(ticker => ticker.volume && ticker.volume > 0)
+                                            .sort((a, b) => {
+                                                const aVolume = a.converted_volume?.usd || 0;
+                                                const bVolume = b.converted_volume?.usd || 0;
+                                                return bVolume - aVolume;
+                                            })
+                                            .slice(0, 5)
+                                            .map(ticker => ({
+                                                name: ticker.market.name,
+                                                volume: ticker.converted_volume?.usd || 0
+                                            }));
+                                    }
+                                }
+                                
                             } catch (error) {
                                 console.warn(`Error fetching data for ${match.id}:`, error);
                             }
                             
                             enrichedMatches.push({
                                 ...match,
-                                marketData: marketData
+                                marketData: marketData,
+                                exchanges: exchanges
                             });
                         }
                         
@@ -4715,12 +4743,34 @@
                                                                 ${match.marketData.priceChange24h >= 0 ? '+' : ''}${match.marketData.priceChange24h.toFixed(2)}%
                                                             </div>
                                                         </div>
-                                                    ` : ''}
-                                                </div>
                                             ` : ''}
                                         </div>
-                                    </label>
-                                `).join('')}
+                                    ` : ''}
+                                    
+                                    ${match.exchanges.length > 0 ? `
+                                        <div style="padding: 8px; background: rgba(59, 130, 246, 0.1); border-radius: 6px;">
+                                            <div style="color: var(--navy-300); font-size: 0.8rem; font-weight: 600; margin-bottom: 5px;">
+                                                📊 Top 5 거래소 (24h 거래량):
+                                            </div>
+                                            <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+                                                ${match.exchanges.map((ex, idx) => `
+                                                    <span style="display: inline-block; padding: 4px 8px; background: rgba(255,255,255,0.08); border-radius: 4px; font-size: 0.75rem; color: var(--gray-200);">
+                                                        <strong>${idx + 1}. ${ex.name}</strong>
+                                                        <span style="color: var(--success); margin-left: 4px;">
+                                                            $${formatVolume(ex.volume)}
+                                                        </span>
+                                                    </span>
+                                                `).join('')}
+                                            </div>
+                                        </div>
+                                    ` : `
+                                        <div style="color: var(--gray-500); font-size: 0.8rem;">
+                                            거래소 정보 없음
+                                        </div>
+                                    `}
+                                </div>
+                            </label>
+                        `).join('')}
                             </div>
                         </div>
                     `).join('');
@@ -4736,51 +4786,93 @@
             });
         }
 
+        // ===== 거래량 포맷 함수 =====
+        function formatVolume(volume) {
+            if (!volume) return '0';
+            if (volume >= 1e9) return (volume / 1e9).toFixed(1) + 'B';
+            if (volume >= 1e6) return (volume / 1e6).toFixed(1) + 'M';
+            if (volume >= 1e3) return (volume / 1e3).toFixed(1) + 'K';
+            return volume.toFixed(0);
+        }
+
+        // ===== 공급량 포맷 함수 =====
+        function formatSupply(value) {
+            if (!value) return '-';
+            if (value >= 1e9) return (value / 1e9).toFixed(1) + 'B';
+            if (value >= 1e6) return (value / 1e6).toFixed(1) + 'M';
+            return (value / 1e3).toFixed(0) + 'K';
+        }
+
         // ===== 실시간 가격 업데이트 함수 =====
         function updateRealtimePrice(symbol, priceData) {
             try {
-                const coinRows = document.querySelectorAll('.data-table tbody tr');
+                const isMobile = window.innerWidth <= 768;
                 
-                coinRows.forEach(row => {
-                    const coinSymbolEl = row.querySelector('.coin-symbol');
-                    if (coinSymbolEl && coinSymbolEl.textContent === symbol.toUpperCase()) {
-                        // ... 기존 가격 업데이트 코드 ...
-                        
-                        // 시가총액 업데이트 (거래소 이름 포함)
-                        const marketCapCell = row.querySelector('td[data-label="시가총액"]');
-                        if (marketCapCell) {
+                // 모바일에서는 애니메이션 없이 값만 업데이트
+                if (isMobile) {
+                    // 직접 텍스트만 변경
+                    const rows = document.querySelectorAll('.data-table tr');
+                    rows.forEach(row => {
+                        if (row.textContent.includes(symbol.toUpperCase())) {
+                            // 가격과 시총 업데이트
+                            const priceEl = row.querySelector('td:nth-child(4) span:last-child');
+                            const marketCapEl = row.querySelector('td:nth-child(5) span:last-child');
+                            
+                            if (priceEl) {
+                                priceEl.textContent = `$${formatPrice(priceData.price)}`;
+                            }
+                            
                             const coin = results.find(c => c.symbol === symbol.toUpperCase());
-                            if (coin && coin.circulating_supply) {
-                                const newMarketCap = priceData.price * coin.circulating_supply;
-                                
-                                let realtimeDiv = marketCapCell.querySelector('.realtime-marketcap');
-                                if (!realtimeDiv) {
-                                    marketCapCell.insertAdjacentHTML('beforeend', `
-                                        <div class="realtime-marketcap" style="padding-top: 6px; border-top: 1px solid rgba(255,255,255,0.1);">
-                                            <span style="font-size: 0.7rem; color: var(--accent-cyan); display: block;">
-                                                ${priceData.source || '바이낸스'} 기준
-                                            </span>
-                                            <span class="realtime-value" style="color: var(--accent-cyan); font-weight: 700; font-size: 1rem;">
-                                                ${formatMarketCap(newMarketCap)}
-                                            </span>
-                                        </div>
-                                    `);
-                                } else {
-                                    // 거래소 이름과 값 업데이트
-                                    const sourceEl = realtimeDiv.querySelector('span:first-child');
-                                    const valueEl = realtimeDiv.querySelector('.realtime-value');
+                            if (marketCapEl && coin && coin.circulating_supply) {
+                                marketCapEl.textContent = formatMarketCap(priceData.price * coin.circulating_supply);
+                            }
+                        }
+                    });
+                } else {
+                    // 데스크톱은 기존 코드
+                    const coinRows = document.querySelectorAll('.data-table tbody tr');
+                    
+                    coinRows.forEach(row => {
+                        const coinSymbolEl = row.querySelector('.coin-symbol');
+                        if (coinSymbolEl && coinSymbolEl.textContent === symbol.toUpperCase()) {
+                            // ... 기존 가격 업데이트 코드 ...
+                            
+                            // 시가총액 업데이트 (거래소 이름 포함)
+                            const marketCapCell = row.querySelector('td[data-label="시가총액"]');
+                            if (marketCapCell) {
+                                const coin = results.find(c => c.symbol === symbol.toUpperCase());
+                                if (coin && coin.circulating_supply) {
+                                    const newMarketCap = priceData.price * coin.circulating_supply;
                                     
-                                    if (sourceEl) {
-                                        sourceEl.textContent = `${priceData.source || '바이낸스'} 기준`;
-                                    }
-                                    if (valueEl) {
-                                        valueEl.textContent = formatMarketCap(newMarketCap);
+                                    let realtimeDiv = marketCapCell.querySelector('.realtime-marketcap');
+                                    if (!realtimeDiv) {
+                                        marketCapCell.insertAdjacentHTML('beforeend', `
+                                            <div class="realtime-marketcap" style="padding-top: 6px; border-top: 1px solid rgba(255,255,255,0.1);">
+                                                <span style="font-size: 0.7rem; color: var(--accent-cyan); display: block;">
+                                                    ${priceData.source || '바이낸스'} 기준
+                                                </span>
+                                                <span class="realtime-value" style="color: var(--accent-cyan); font-weight: 700; font-size: 1rem;">
+                                                    ${formatMarketCap(newMarketCap)}
+                                                </span>
+                                            </div>
+                                        `);
+                                    } else {
+                                        // 거래소 이름과 값 업데이트
+                                        const sourceEl = realtimeDiv.querySelector('span:first-child');
+                                        const valueEl = realtimeDiv.querySelector('.realtime-value');
+                                        
+                                        if (sourceEl) {
+                                            sourceEl.textContent = `${priceData.source || '바이낸스'} 기준`;
+                                        }
+                                        if (valueEl) {
+                                            valueEl.textContent = formatMarketCap(newMarketCap);
+                                        }
                                     }
                                 }
                             }
                         }
-                    }
-                });
+                    });
+                }
             } catch (error) {
                 console.error('Update error:', error);
             }
@@ -5537,17 +5629,87 @@
 
         /* 모바일 전용 테이블 카드 뷰 */
         @media (max-width: 768px) {
+            /* 테이블을 카드 형식으로 완전 재구성 */
+            .data-table {
+                display: block !important;
+            }
+            
+            .data-table thead {
+                display: none !important;
+            }
+            
+            .data-table tbody {
+                display: block !important;
+            }
+            
+            .data-table tr {
+                display: grid !important;
+                grid-template-areas:
+                    "rank coin coin"
+                    "price price marketcap"
+                    "supply supply contract";
+                grid-template-columns: auto 1fr 1fr;
+                gap: 10px;
+                padding: 15px !important;
+                margin-bottom: 15px;
+                background: linear-gradient(135deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.03) 100%);
+                border: 1px solid rgba(255, 255, 255, 0.1);
+                border-radius: 12px;
+            }
+            
+            /* 필요한 컬럼만 표시 */
+            .data-table td {
+                display: none !important;
+            }
+            
+            .data-table td:nth-child(1), /* 순위 */
+            .data-table td:nth-child(2), /* 코인명 */
+            .data-table td:nth-child(3), /* 심볼 */
+            .data-table td:nth-child(4), /* 현재가 */
+            .data-table td:nth-child(5), /* 시가총액 */
+            .data-table td:nth-child(7), /* 공급량 */
+            .data-table td:nth-child(10) { /* 컨트랙트 */
+                display: block !important;
+                padding: 5px 0 !important;
+            }
+            
+            /* 그리드 배치 */
+            .data-table td:nth-child(1) { 
+                grid-area: rank;
+                align-self: center;
+            }
+            
+            .data-table td:nth-child(2),
+            .data-table td:nth-child(3) { 
+                grid-area: coin;
+            }
+            
+            .data-table td:nth-child(4) { 
+                grid-area: price;
+            }
+            
+            .data-table td:nth-child(5) { 
+                grid-area: marketcap;
+            }
+            
+            .data-table td:nth-child(7) { 
+                grid-area: supply;
+                font-size: 0.8rem;
+            }
+            
+            .data-table td:nth-child(10) { 
+                grid-area: contract;
+                font-size: 0.75rem;
+            }
+            
+            /* 레이블 제거 */
+            .data-table td:before {
+                display: none !important;
+            }
+            
             .table-container {
                 padding: 0;
                 background: transparent;
-            }
-            
-            /* 모바일에서는 덜 중요한 컬럼 숨기기 */
-            .data-table th:nth-child(6),  /* FDV */
-            .data-table td:nth-child(6),
-            .data-table th:nth-child(7),  /* 유통량 */
-            .data-table td:nth-child(7) {
-                display: none;
             }
             
             /* 실시간 가격 박스 모바일 최적화 */
@@ -6551,6 +6713,11 @@
 
 </body>
 </html>
+
+
+
+
+
 
 
 

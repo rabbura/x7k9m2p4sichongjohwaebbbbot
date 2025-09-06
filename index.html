@@ -2818,6 +2818,10 @@
 
             // 가격 업데이트 처리
             updateRealtimePrice(symbol, priceData) {
+                // 디버깅 로그 추가
+                console.log(`[updateRealtimePrice] Symbol: ${symbol}, Price: $${priceData.price}, Source: ${priceData.source}`);
+                console.log(`[updateRealtimePrice] Is Mobile: ${window.innerWidth <= 768}, Width: ${window.innerWidth}`);
+                
                 try {
                     const isMobile = window.innerWidth <= 768;
                     // DOM 직접 업데이트 (새로고침 없이)
@@ -2862,8 +2866,26 @@
                                 }
                             }
                             
-                            // 실시간 시총도 업데이트
-                            this.updateRealtimeMarketCap(row, symbol, priceData.price);
+                            // 시가총액 업데이트 부분
+                            const marketCapCell = row.querySelector('td[data-label="시가총액"]');
+                            if (marketCapCell) {
+                                const coin = results.find(c => c.symbol === symbol.toUpperCase());
+                                if (coin && coin.circulating_supply) {
+                                    const newMarketCap = priceData.price * coin.circulating_supply;
+                                    
+                                    // 실시간 시총 div 찾기
+                                    const realtimeDiv = marketCapCell.querySelector('.realtime-marketcap');
+                                    if (realtimeDiv) {
+                                        // 보이게 하고 업데이트
+                                        realtimeDiv.style.display = 'block';
+                                        const sourceSpan = realtimeDiv.querySelector('span:first-child');
+                                        const valueSpan = realtimeDiv.querySelector('.realtime-value');
+                                        
+                                        if (sourceSpan) sourceSpan.textContent = `${priceData.source} 기준`;
+                                        if (valueSpan) valueSpan.textContent = this.formatMarketCap(newMarketCap);
+                                    }
+                                }
+                            }
                         }
                     });
                 } catch (error) {
@@ -3816,16 +3838,15 @@
                                             <span style="font-size: 0.7rem; color: var(--gray-400); display: block;">CoinGecko 기준</span>
                                             <span class="market-cap-display">${formatMarketCap(coin.market_cap)}</span>
                                         </div>
-                                        ${realtimeMarketCap && coin.realtimePrice ? `
-                                            <div style="padding-top: 6px; border-top: 1px solid rgba(255,255,255,0.1);">
-                                                <span style="font-size: 0.7rem; color: var(--accent-cyan); display: block;">
-                                                    ${coin.realtimePrice.source} 기준
-                                                </span>
-                                                <span style="color: var(--accent-cyan); font-weight: 700; font-size: 1rem;">
-                                                    ${formatMarketCap(realtimeMarketCap)}
-                                                </span>
-                                            </div>
-                                        ` : ''}
+                                        <!-- 실시간 시총 공간 미리 생성 (숨김 상태) -->
+                                        <div class="realtime-marketcap" style="display: none; padding-top: 6px; border-top: 1px solid rgba(255,255,255,0.1);">
+                                            <span style="font-size: 0.7rem; color: var(--accent-cyan); display: block;">
+                                                실시간 기준
+                                            </span>
+                                            <span class="realtime-value" style="color: var(--accent-cyan); font-weight: 700; font-size: 1rem;">
+                                                -
+                                            </span>
+                                        </div>
                                     </div>
                                 </td>
                                 

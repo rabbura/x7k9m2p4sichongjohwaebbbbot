@@ -3346,6 +3346,11 @@
                 }
                 
                 try {
+                    // ⭐ 변수 선언을 맨 앞으로 이동
+                    const enrichedChoices = [];
+                    const totalCoins = duplicateChoices.reduce((sum, choice) => sum + choice.matches.length, 0);
+                    let processedCoins = 0;
+                    
                     // 로딩 표시 추가 (모바일 최적화)
                     const updateLoadingProgress = (current, total, progress) => {
                         choicesDiv.innerHTML = `
@@ -3369,10 +3374,6 @@
                     // 초기 로딩 표시
                     updateLoadingProgress(0, totalCoins, 0);
                     modal.style.display = 'flex';
-                    
-                    const enrichedChoices = [];
-                    const totalCoins = duplicateChoices.reduce((sum, choice) => sum + choice.matches.length, 0);
-                    let processedCoins = 0;
                     
                     for (let choice of duplicateChoices) {
                         const enrichedMatches = [];
@@ -4801,21 +4802,43 @@
                 const isMobile = window.innerWidth <= 768;
                 
                 if (isMobile) {
-                    // 모바일 업데이트
+                    // 모바일 업데이트 - 더 직접적인 방법
                     const rows = document.querySelectorAll('.data-table tr');
                     rows.forEach(row => {
+                        // 심볼로 매칭
                         if (row.textContent.includes(symbol.toUpperCase())) {
-                            const priceEl = row.querySelector('.realtime-price-mobile');
-                            const capEl = row.querySelector('.realtime-cap-mobile');
-                            const coin = results.find(c => c.symbol === symbol.toUpperCase());
-                            
-                            if (priceEl) {
-                                priceEl.textContent = `$${formatPrice(priceData.price)}`;
+                            // 가격 업데이트
+                            const priceDiv = row.querySelector('div:contains("현재가")');
+                            if (priceDiv && priceDiv.parentElement) {
+                                const existingRealtime = priceDiv.parentElement.querySelector('div[style*="color: #10F981"]');
+                                if (existingRealtime) {
+                                    existingRealtime.textContent = `${priceData.source}: $${formatPrice(priceData.price)}`;
+                                } else {
+                                    priceDiv.parentElement.insertAdjacentHTML('beforeend', 
+                                        `<div style="color: #10F981; font-weight: 600; font-size: 0.85rem;">
+                                            ${priceData.source}: $${formatPrice(priceData.price)}
+                                        </div>`
+                                    );
+                                }
                             }
                             
-                            if (capEl && coin && coin.circulating_supply) {
-                                const newCap = priceData.price * coin.circulating_supply;
-                                capEl.textContent = formatMarketCap(newCap);
+                            // 시총 업데이트
+                            const marketCapDiv = row.querySelector('div:contains("시가총액")');
+                            if (marketCapDiv && marketCapDiv.parentElement) {
+                                const coin = results.find(c => c.symbol === symbol.toUpperCase());
+                                if (coin && coin.circulating_supply) {
+                                    const newCap = priceData.price * coin.circulating_supply;
+                                    const existingRealtime = marketCapDiv.parentElement.querySelector('div[style*="color: var(--accent-cyan)"]');
+                                    if (existingRealtime) {
+                                        existingRealtime.textContent = `${priceData.source}: ${formatMarketCap(newCap)}`;
+                                    } else {
+                                        marketCapDiv.parentElement.insertAdjacentHTML('beforeend',
+                                            `<div style="color: var(--accent-cyan); font-weight: 600; font-size: 0.85rem;">
+                                                ${priceData.source}: ${formatMarketCap(newCap)}
+                                            </div>`
+                                        );
+                                    }
+                                }
                             }
                         }
                     });
@@ -6708,6 +6731,9 @@
 
 </body>
 </html>
+
+
+
 
 
 

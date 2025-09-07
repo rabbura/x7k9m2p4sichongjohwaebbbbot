@@ -1954,6 +1954,25 @@
                 });
             }
             
+            // 코인 정보 조회 버튼 이벤트 리스너 추가
+            const fetchButton = document.getElementById('fetchButton');
+            if (fetchButton) {
+                fetchButton.removeEventListener('click', fetchCoinData); // 중복 방지
+                fetchButton.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    console.log('[모바일] 조회 버튼 클릭됨');
+                    fetchCoinData();
+                });
+                // 터치 이벤트도 추가
+                fetchButton.addEventListener('touchend', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    console.log('[모바일] 조회 버튼 터치됨');
+                    fetchCoinData();
+                });
+            }
+            
             // iOS 스탠드얼론 모드 감지
             if (window.navigator.standalone) {
                 console.log('🎉 iOS 웹앱 모드로 실행 중');
@@ -3404,6 +3423,10 @@
         
         // fetchCoinData 함수 재정의
         async function fetchCoinData() {
+            console.log('[fetchCoinData] 함수 시작');
+            console.log('[fetchCoinData] 현재 coins:', coins);
+            console.log('[fetchCoinData] 모바일 여부:', /iPhone|iPad|iPod|Android/i.test(navigator.userAgent));
+            
             // 기존 웹소켓 연결 종료
             if (realtimePriceSystem) {
                 realtimePriceSystem.stopWebSocketStreams();
@@ -3420,7 +3443,12 @@
                     showNotification('잘못된 코인 형식입니다', 'error');
                     return;
                 }
-                coins = [cloudSync.sanitizeInput(newCoin)]; // 단일 조회로 변경
+                // cloudSync가 없는 경우 처리
+                if (typeof cloudSync !== 'undefined' && cloudSync.sanitizeInput) {
+                    coins = [cloudSync.sanitizeInput(newCoin)];
+                } else {
+                    coins = [newCoin];
+                }
                 newCoinInput.value = '';
                 updateCoinList();
             }
@@ -4033,9 +4061,13 @@
                 results = updatedResults;
                 
                 // 모바일과 데스크톱 분기 처리
+                console.log('[실시간 표시] 모바일 여부:', isMobile);
                 if (isMobile) {
                     // 모바일 전용 카드 레이아웃 사용
-                    resultsTable.innerHTML = results.map(coin => renderMobileResults(coin)).join('');
+                    console.log('[실시간 표시] 모바일 카드 렌더링');
+                    const mobileHtml = results.map(coin => renderMobileResults(coin)).join('');
+                    console.log('[실시간 표시] HTML 길이:', mobileHtml.length);
+                    resultsTable.innerHTML = mobileHtml;
                 } else {
                     // 데스크톱 전용 기존 HTML 생성
                     resultsTable.innerHTML = results.map(coin => {
@@ -4174,6 +4206,10 @@
 
         // 기존 displayResults 함수 (실시간 가격 실패시 백업용)
         function displayResults() {
+            console.log('[displayResults] 함수 시작');
+            console.log('[displayResults] results 길이:', results.length);
+            console.log('[displayResults] 모바일 여부:', /iPhone|iPad|iPod|Android/i.test(navigator.userAgent));
+            
             const resultsSection = document.getElementById('resultsSection');
             const resultsTable = document.getElementById('resultsTable');
             const resultCount = document.getElementById('resultCount');
@@ -4181,6 +4217,7 @@
             const theddariButton = document.getElementById('theddariButton');
             
             if (!resultsSection || !resultsTable || results.length === 0) {
+                console.error('[displayResults] 오류: resultsSection:', !!resultsSection, 'resultsTable:', !!resultsTable, 'results:', results.length);
                 showNotification('No results to display', 'warning');
                 return;
             }
@@ -4194,9 +4231,13 @@
             const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || window.innerWidth <= 768;
             
             // 모바일과 데스크톱 분기 처리
+            console.log('[displayResults] 모바일 여부 체크:', isMobile);
             if (isMobile) {
                 // 모바일용 카드 레이아웃
-                resultsTable.innerHTML = results.map(coin => renderMobileResults(coin)).join('');
+                console.log('[displayResults] 모바일 카드 렌더링', results.length, '개 코인');
+                const mobileHtml = results.map(coin => renderMobileResults(coin)).join('');
+                console.log('[displayResults] 모바일 HTML 생성 완료');
+                resultsTable.innerHTML = mobileHtml;
             } else {
                 // 데스크톱용 테이블 레이아웃
                 resultsTable.innerHTML = results.map(coin => {
@@ -7431,8 +7472,6 @@
 
 </body>
 </html>
-
-
 
 
 

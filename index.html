@@ -2812,38 +2812,52 @@
                 this.websockets.set('binance', ws);
             }
 
-            // 바이빗 웹소켓 (백업)
+            // 바이빗 웹소켓
             connectBybitWebSocket(coins) {
                 const ws = new WebSocket('wss://stream.bybit.com/v5/public/spot');
                 
                 ws.onopen = () => {
+                    console.log('바이빗 웹소켓 연결됨');
                     // 구독 메시지 전송
                     const subscribeMsg = {
                         op: "subscribe",
                         args: coins.map(coin => `tickers.${coin.symbol.toUpperCase()}USDT`)
                     };
+                    console.log('[바이빗] 구독:', subscribeMsg.args);
                     ws.send(JSON.stringify(subscribeMsg));
                 };
                 
                 ws.onmessage = (event) => {
                     const data = JSON.parse(event.data);
-                    if (data.topic && data.topic.startsWith('tickers.')) {
+                    
+                    // 바이빗 연결 성공 메시지
+                    if (data.success === true && data.op === 'subscribe') {
+                        console.log('[바이빗] 구독 성공');
+                        return;
+                    }
+                    
+                    if (data.topic && data.topic.startsWith('tickers.') && data.data) {
                         const symbol = data.topic.replace('tickers.', '').replace('USDT', '');
                         
-                        // results에서 해당 심볼이 있는지 확인
-                        const matchingCoin = results.find(coin => 
-                            coin.symbol.toUpperCase() === symbol.toUpperCase()
-                        );
-                        
-                        if (!matchingCoin) return; // 매칭되는 코인이 없으면 무시
-                        
-                        // 우선순위 체크는 updateRealtimePrice에서 처리
-                        
-                        this.updateRealtimePrice(symbol, {
-                            price: parseFloat(data.data.lastPrice),
-                            source: '바이빗',
-                            timestamp: Date.now()
-                        });
+                        if (data.data.lastPrice) {
+                            console.log(`[바이빗 수신] ${symbol}: $${data.data.lastPrice}`);
+                            
+                            // results에서 해당 심볼이 있는지 확인
+                            const matchingCoin = results.find(coin => 
+                                coin.symbol.toUpperCase() === symbol.toUpperCase()
+                            );
+                            
+                            if (!matchingCoin) {
+                                console.log(`[바이빗] ${symbol} 코인을 results에서 찾을 수 없음`);
+                                return;
+                            }
+                            
+                            this.updateRealtimePrice(symbol, {
+                                price: parseFloat(data.data.lastPrice),
+                                source: '바이빗',
+                                timestamp: Date.now()
+                            });
+                        }
                     }
                 };
                 
@@ -4454,7 +4468,7 @@
                                         </div>
                                     `).join('')}
                                 </div>
-                                <button class="show-more-btn" onclick="toggleContracts('${coin.symbol}', this)">
+                                <button class="show-more-btn" onclick="toggleContractsMobile('${coin.symbol}', this)">
                                     더보기 (${hiddenContracts.length}개 더)
                                 </button>
                             ` : ''}
@@ -4565,8 +4579,8 @@
             `;
         }
         
-        // 컨트랙트 토글 함수 (전역으로 선언)
-        window.toggleContracts = function(symbol, button) {
+        // 컨트랙트 토글 함수 (전역으로 선언 - 모바일용)
+        window.toggleContractsMobile = function(symbol, button) {
             const hiddenContracts = document.getElementById(`contracts-${symbol}`);
             if (hiddenContracts) {
                 const isHidden = hiddenContracts.style.display === 'none';
@@ -4807,8 +4821,8 @@
         }
 
 
-        // 컨트랙트 토글 (웹 버전)
-        function toggleContracts(coinId, element) {
+        // 컨트랙트 토글 (웹 버전 - 전역)
+        window.toggleContracts = function(coinId, element) {
             const hiddenDiv = document.getElementById(`hidden-${coinId}`);
             const toggleBtn = element || event.target;
             

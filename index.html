@@ -1990,8 +1990,8 @@
             }, 600000); // 10분
         });
 
-        // ===== 입력 처리 함수 =====
-        function handleEnterKey(event) {
+        // ===== 입력 처리 함수 (전역 함수로 변경) =====
+        window.handleEnterKey = function(event) {
             if (event.key === 'Enter') {
                 event.preventDefault();
                 if (event.shiftKey) {
@@ -2266,7 +2266,7 @@
         }
 
         // ===== 코인 관리 =====
-        function addCoin() {
+        window.addCoin = function() {
             const newCoinInput = document.getElementById('newCoin');
             if (!newCoinInput) return;
             
@@ -2291,7 +2291,7 @@
             }
         }
 
-        function addCoinAndSearch() {
+        window.addCoinAndSearch = function() {
             const newCoinInput = document.getElementById('newCoin');
             if (!newCoinInput) return;
             
@@ -2322,7 +2322,7 @@
             }
         }
 
-        function removeCoin(index) {
+        window.removeCoin = function(index) {
             coins.splice(index, 1);
             updateCoinList();
         }
@@ -3651,7 +3651,7 @@
         const originalFetchCoinData = fetchCoinData;
         
         // fetchCoinData 함수 재정의
-        async function fetchCoinData() {
+        window.fetchCoinData = async function() {
             // 기존 웹소켓 연결 종료
             if (realtimePriceSystem) {
                 realtimePriceSystem.stopWebSocketStreams();
@@ -7679,6 +7679,7 @@
 
 </body>
 </html>
+
 
 
 

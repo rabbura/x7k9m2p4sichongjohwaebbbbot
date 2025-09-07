@@ -719,9 +719,9 @@
                             <div class="search-input-wrapper">
                                 <input type="text" id="newCoin" class="premium-input" 
                                        placeholder="예: BTC, ethereum, SOL"
-                                       onkeypress="handleEnterKey(event)">
+                                       onkeypress="if(window.handleEnterKey) handleEnterKey(event)">
                                 <div class="search-button-group">
-                                    <button class="btn btn-primary search-btn" onclick="addCoinAndSearch()">
+                                    <button class="btn btn-primary search-btn" onclick="if(window.addCoinAndSearch) addCoinAndSearch()">
                                         <span class="search-btn-icon">🔍</span>
                                         <span class="search-btn-text">바로 조회</span>
                                 </button>
@@ -7668,9 +7668,6 @@
 
 </body>
 </html>
-
-
-
 
 
 

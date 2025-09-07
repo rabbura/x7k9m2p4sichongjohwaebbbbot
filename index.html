@@ -4269,6 +4269,11 @@
 
         // 모바일용 간소화된 결과 표시 함수
         function renderMobileResults(coin) {
+            const priceChangeClass = coin.price_change_24h > 0 ? 'positive' : 
+                                    coin.price_change_24h < 0 ? 'negative' : 'neutral';
+            const changeArrow = coin.price_change_24h > 0 ? '▲' : 
+                              coin.price_change_24h < 0 ? '▼' : '－';
+            
             return `
                 <div class="mobile-result-card">
                     <div class="mobile-card-header">
@@ -4278,36 +4283,50 @@
                     </div>
                     
                     <div class="mobile-card-body">
-                        <div class="price-section">
-                            <div class="price-main">
-                                $${formatPrice(coin.current_price)}
-                                ${coin.realtimePrice ? 
-                                    `<span class="realtime-badge">
-                                        $${formatPrice(coin.realtimePrice.price)}
-                                    </span>` : ''
-                                }
+                        <div class="info-grid-mobile">
+                            <div class="info-item">
+                                <span class="info-label">현재가</span>
+                                <span class="info-value">
+                                    $${formatPrice(coin.current_price)}
+                                    ${coin.realtimePrice ? 
+                                        `<span class="realtime-badge-small">
+                                            실시간: $${formatPrice(coin.realtimePrice.price)}
+                                        </span>` : ''
+                                    }
+                                </span>
                             </div>
-                        </div>
-                        
-                        <div class="info-grid">
+                            
+                            <div class="info-item">
+                                <span class="info-label">24시간</span>
+                                <span class="info-value price-change ${priceChangeClass}">
+                                    ${coin.price_change_24h !== null ? `
+                                        <span class="change-arrow">${changeArrow}</span>
+                                        ${Math.abs(coin.price_change_24h).toFixed(2)}%
+                                    ` : '－'}
+                                </span>
+                            </div>
+                            
                             <div class="info-item">
                                 <span class="info-label">시총</span>
                                 <span class="info-value">${formatMarketCap(coin.market_cap)}</span>
                             </div>
+                            
                             <div class="info-item">
-                                <span class="info-label">공급량</span>
-                                <span class="info-value">${formatSupply(coin.circulating_supply)}</span>
+                                <span class="info-label">유통량/총공급량</span>
+                                <span class="info-value">${formatSupply(coin.circulating_supply)}/${formatSupply(coin.total_supply || coin.max_supply)}</span>
                             </div>
+                            
+                            ${coin.contracts && coin.contracts.length > 0 ? `
+                                <div class="info-item">
+                                    <span class="info-label">컨트랙트</span>
+                                    <span class="info-value contract-mobile" onclick="copyToClipboard('${coin.contracts[0].address}', this)">
+                                        <span class="contract-platform-mobile">${formatPlatformName(coin.contracts[0].platform)}</span>
+                                        ${truncateAddress(coin.contracts[0].address)}
+                                        <span class="copy-icon">📋</span>
+                                    </span>
+                                </div>
+                            ` : ''}
                         </div>
-                        
-                        ${coin.contracts.length > 0 ? `
-                            <div class="contract-section">
-                                <span class="contract-label">컨트랙트</span>
-                                <span class="contract-value" onclick="copyToClipboard('${coin.contracts[0].address}', this)">
-                                    ${truncateAddress(coin.contracts[0].address)}
-                                </span>
-                            </div>
-                        ` : ''}
                     </div>
                 </div>
             `;
@@ -6173,45 +6192,137 @@
                 display: flex;
                 align-items: center;
                 gap: 10px;
-                margin-bottom: 12px;
+                margin-bottom: 15px;
+                padding-bottom: 10px;
+                border-bottom: 1px solid rgba(255, 255, 255, 0.1);
             }
             
             .mobile-card-header .rank-badge {
                 margin: 0;
+                font-size: 0.9rem;
             }
             
             .mobile-card-header .coin-name {
                 font-size: 1.1rem;
                 font-weight: 700;
                 color: var(--gray-100);
+                flex: 1;
             }
             
             .mobile-card-header .coin-symbol {
                 font-size: 0.9rem;
                 color: var(--gray-400);
                 background: rgba(255, 255, 255, 0.1);
-                padding: 2px 6px;
+                padding: 2px 8px;
                 border-radius: 4px;
+                text-transform: uppercase;
             }
             
             .mobile-card-body {
                 display: flex;
                 flex-direction: column;
-                gap: 12px;
+                gap: 8px;
             }
             
-            .price-section {
-                border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-                padding-bottom: 12px;
+            .info-grid-mobile {
+                display: flex;
+                flex-direction: column;
+                gap: 10px;
             }
             
-            .price-main {
+            .info-grid-mobile .info-item {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                padding: 8px 0;
+                border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            }
+            
+            .info-grid-mobile .info-item:last-child {
+                border-bottom: none;
+            }
+            
+            .info-grid-mobile .info-label {
+                font-size: 0.85rem;
+                color: var(--gray-400);
+                font-weight: 500;
+                min-width: 80px;
+            }
+            
+            .info-grid-mobile .info-value {
+                font-size: 0.95rem;
+                color: var(--gray-100);
+                font-weight: 600;
+                text-align: right;
+                flex: 1;
+                display: flex;
+                justify-content: flex-end;
+                align-items: center;
+                gap: 8px;
+            }
+            
+            .realtime-badge-small {
+                font-size: 0.75rem;
+                color: var(--accent-cyan);
+                background: rgba(0, 255, 255, 0.1);
+                padding: 2px 6px;
+                border-radius: 4px;
+                white-space: nowrap;
+            }
+            
+            .contract-mobile {
+                cursor: pointer;
                 display: flex;
                 align-items: center;
-                gap: 10px;
-                font-size: 1.2rem;
+                gap: 6px;
+                padding: 4px 8px;
+                background: rgba(255, 255, 255, 0.05);
+                border-radius: 6px;
+                transition: all 0.2s;
+                font-size: 0.85rem;
+            }
+            
+            .contract-mobile:hover {
+                background: rgba(255, 255, 255, 0.1);
+                transform: translateX(-2px);
+            }
+            
+            .contract-platform-mobile {
+                font-size: 0.75rem;
+                color: var(--accent-cyan);
+                background: rgba(0, 255, 255, 0.15);
+                padding: 1px 4px;
+                border-radius: 3px;
+                text-transform: uppercase;
+            }
+            
+            .copy-icon {
+                font-size: 0.8rem;
+                margin-left: 4px;
+                opacity: 0.7;
+            }
+            
+            .info-grid-mobile .price-change {
+                display: flex;
+                align-items: center;
+                gap: 4px;
                 font-weight: 700;
-                color: var(--gray-100);
+            }
+            
+            .info-grid-mobile .price-change.positive {
+                color: var(--success-green);
+            }
+            
+            .info-grid-mobile .price-change.negative {
+                color: var(--error-red);
+            }
+            
+            .info-grid-mobile .price-change.neutral {
+                color: var(--gray-400);
+            }
+            
+            .change-arrow {
+                font-size: 0.8rem;
             }
             
             .realtime-badge {
@@ -6987,10 +7098,6 @@
 
 </body>
 </html>
-
-
-
-
 
 
 

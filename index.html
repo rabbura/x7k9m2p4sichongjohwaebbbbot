@@ -2747,7 +2747,7 @@
                 // CEX 웹소켓
                 this.connectBinanceWebSocket(coins);
                 this.connectBybitWebSocket(coins);
-                // this.connectOKXWebSocket(coins);  // 필요시 활성화
+                this.connectOKXWebSocket(coins);  // OKX 활성화
                 // this.connectGateWebSocket(coins);  // 필요시 활성화
                 
                 // DEX 폴링 시작
@@ -2850,7 +2850,7 @@
                 this.websockets.set('bybit', ws);
             }
 
-            // OKX 웹소켓 연결 (선택사항)
+            // OKX 웹소켓 연결
             connectOKXWebSocket(coins) {
                 const ws = new WebSocket('wss://ws.okx.com:8443/ws/v5/public');
                 
@@ -2865,6 +2865,7 @@
                             "instId": `${coin.symbol.toUpperCase()}-USDT`
                         }))
                     };
+                    console.log('[OKX] 구독 심볼:', coins.map(c => `${c.symbol.toUpperCase()}-USDT`));
                     ws.send(JSON.stringify(subscribeMsg));
                 };
                 
@@ -2872,13 +2873,21 @@
                     const data = JSON.parse(event.data);
                     if (data.arg?.channel === 'tickers' && data.data?.[0]) {
                         const ticker = data.data[0];
-                        const symbol = ticker.instId.replace('-USDT', '');
+                        const symbol = ticker.instId.replace('-USDT', '').replace('-SPOT', '');
                         
-                        // 코인별 거래소 고정 확인
-                        if (this.lockedExchanges.has(symbol) && 
-                            this.lockedExchanges.get(symbol) !== 'OKX') {
-                            return; // 다른 거래소에 이미 고정됨
+                        console.log(`[OKX 수신] ${symbol}: $${ticker.last}`);
+                        
+                        // results에서 해당 심볼이 있는지 확인
+                        const matchingCoin = results.find(coin => 
+                            coin.symbol.toUpperCase() === symbol.toUpperCase()
+                        );
+                        
+                        if (!matchingCoin) {
+                            console.log(`[OKX] ${symbol} 코인을 results에서 찾을 수 없음`);
+                            return;
                         }
+                        
+                        // 우선순위 체크는 updateRealtimePrice에서 처리
                         
                         this.updateRealtimePrice(symbol, {
                             price: parseFloat(ticker.last),
@@ -2954,10 +2963,10 @@
                     this.pollDEXPrices();
                 }, 1000);
                 
-                // 5초마다 업데이트 (변동성 높은 시장은 3초로 조정 가능)
+                // 3초마다 업데이트 (더 빠른 실시간 반영)
                 this.dexPollingInterval = setInterval(() => {
                     this.pollDEXPrices();
-                }, 5000);  // 5초 간격
+                }, 3000);  // 3초 간격
             }
 
             // DEX 가격 폴링
@@ -4648,7 +4657,7 @@
                             </div>
                         `).join('')}
                     </div>
-                    <span class="contract-expand" onclick="toggleContracts('${coin.id}')">
+                    <span class="contract-expand" onclick="toggleContracts('${coin.id}', this)">
                         +${hiddenContracts.length} more
                     </span>
                 `;
@@ -4798,18 +4807,18 @@
         }
 
 
-        // 컨트랙트 토글
-        function toggleContracts(coinId) {
+        // 컨트랙트 토글 (웹 버전)
+        function toggleContracts(coinId, element) {
             const hiddenDiv = document.getElementById(`hidden-${coinId}`);
-            const toggleBtn = event.target;
+            const toggleBtn = element || event.target;
             
             if (hiddenDiv) {
                 if (hiddenDiv.style.display === 'none') {
                     hiddenDiv.style.display = 'block';
-                    toggleBtn.textContent = 'Show less';
+                    toggleBtn.textContent = '접기';
                 } else {
                     hiddenDiv.style.display = 'none';
-                    const count = hiddenDiv.querySelectorAll('div').length;
+                    const count = hiddenDiv.querySelectorAll('.contract-item').length;
                     toggleBtn.textContent = `+${count} more`;
                 }
             }
@@ -7523,8 +7532,6 @@
 
 </body>
 </html>
-
-
 
 
 

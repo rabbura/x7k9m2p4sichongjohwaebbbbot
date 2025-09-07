@@ -1881,8 +1881,8 @@
             updateLastTime();
             loadMemo();
             
-            // 실시간 가격 시스템 초기화 (전역 변수)
-            let realtimePriceSystem = new RealtimePriceSystem();
+            // 실시간 가격 시스템 초기화 (전역 변수는 1039줄에 선언됨)
+            realtimePriceSystem = new RealtimePriceSystem();
             
             // 페이지 종료 시 웹소켓 정리
             window.addEventListener('beforeunload', () => {
@@ -7477,11 +7477,6 @@
 
 </body>
 </html>
-
-
-
-
-
 
 
 

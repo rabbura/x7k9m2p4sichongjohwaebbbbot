@@ -2967,7 +2967,7 @@
                 // console.log(`[updateRealtimePrice] Symbol: ${symbol}, Price: $${priceData.price}, Source: ${priceData.source}`);
                 
                 try {
-                    const isMobile = window.innerWidth <= 768;
+                    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || window.innerWidth <= 768;
                     const coinRows = document.querySelectorAll('.data-table tbody tr');
                     
                     coinRows.forEach(row => {
@@ -3942,11 +3942,13 @@
             if (downloadButton) downloadButton.style.display = 'inline-flex';
             if (theddariButton) theddariButton.style.display = 'inline-flex';
             
-            // 모바일 여부 체크
-            const isMobile = window.innerWidth <= 768;
+            // 모바일 여부 체크 (User-Agent 또는 화면 크기)
+            const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || window.innerWidth <= 768;
+            
+            console.log('[displayRealtimeResults] 모바일 감지:', isMobile);
             
             // 모바일에서는 간단한 알림만
-            if (window.innerWidth <= 768) {
+            if (isMobile) {
                 showNotification('가격 업데이트 중...', 'info');
             } else {
                 showNotification('실시간 거래소 가격 조회 중...', 'info');
@@ -4109,11 +4111,19 @@
             if (downloadButton) downloadButton.style.display = 'inline-flex';
             if (theddariButton) theddariButton.style.display = 'inline-flex';
             
-            // 모바일 여부 체크
-            const isMobile = window.innerWidth <= 768;
+            // 모바일 여부 체크 (User-Agent 또는 화면 크기)
+            const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || window.innerWidth <= 768;
+            
+            // 디버깅용 로그
+            console.log('=== 모바일 감지 디버그 ===');
+            console.log('User Agent:', navigator.userAgent);
+            console.log('화면 너비:', window.innerWidth);
+            console.log('모바일 감지됨:', isMobile);
+            console.log('=========================');
             
             // 모바일과 데스크톱 분기 처리
             if (isMobile) {
+                console.log('>>> 모바일 카드 레이아웃 적용 중...');
                 // 모바일용 카드 레이아웃
                 resultsTable.innerHTML = results.map(coin => renderMobileResults(coin)).join('');
             } else {
@@ -4378,7 +4388,7 @@
                 return '<span style="color: var(--gray-500); font-size: 0.8rem;">N/A</span>';
             }
             
-            const isMobile = window.innerWidth <= 768;
+            const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || window.innerWidth <= 768;
             
             if (isMobile) {
                 // 모바일: 컴팩트한 2열 그리드
@@ -5033,7 +5043,7 @@
         // ===== 실시간 가격 업데이트 함수 =====
         function updateRealtimePrice(symbol, priceData) {
             try {
-                const isMobile = window.innerWidth <= 768;
+                const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || window.innerWidth <= 768;
                 
                 if (isMobile) {
                     // 모바일 업데이트 - 더 직접적인 방법

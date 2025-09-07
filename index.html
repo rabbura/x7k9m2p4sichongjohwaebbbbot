@@ -3195,9 +3195,9 @@
                                                    priceCell.querySelector('div[style*="background: rgba(59, 130, 246, 0.1)"]');
                                 
                                 if (realtimeBox) {
-                                    // 기존 박스의 가격 업데이트
-                                    const priceEl = realtimeBox.querySelector('.realtime-price-value') || 
-                                                   realtimeBox.querySelector('div[style*="font-family: var(--font-mono)"]');
+                                    // 기존 박스의 가격 업데이트 - createRealtimeBox에서 생성한 span 찾기
+                                    const priceEl = realtimeBox.querySelector('span[style*="font-weight: 600"]') || 
+                                                   realtimeBox.querySelector('.realtime-price-value');
                                     
                                     if (priceEl) {
                                         const oldPrice = parseFloat(priceEl.textContent.replace('$', '').replace(',', ''));
@@ -7464,6 +7464,9 @@
 
 </body>
 </html>
+
+
+
 
 
 

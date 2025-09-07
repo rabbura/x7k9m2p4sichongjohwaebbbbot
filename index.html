@@ -1881,8 +1881,8 @@
             updateLastTime();
             loadMemo();
             
-            // 실시간 가격 시스템 초기화
-            realtimePriceSystem = new RealtimePriceSystem();
+            // 실시간 가격 시스템 초기화 (전역 변수)
+            let realtimePriceSystem = new RealtimePriceSystem();
             
             // 페이지 종료 시 웹소켓 정리
             window.addEventListener('beforeunload', () => {
@@ -3448,14 +3448,10 @@
             }
         }
 
-        // RealtimePriceSystem 인스턴스 생성
-        const realtimePriceSystem = new RealtimePriceSystem();
+        // RealtimePriceSystem 인스턴스는 1885줄에서 이미 생성됨
 
         // ===== API 호출 함수들 =====
-        // 원본 fetchCoinData 함수 저장
-        const originalFetchCoinData = fetchCoinData;
-        
-        // fetchCoinData 함수 재정의
+        // fetchCoinData 함수 정의
         async function fetchCoinData() {
             console.log('[fetchCoinData] 함수 시작');
             console.log('[fetchCoinData] 현재 coins:', coins);
@@ -4773,13 +4769,6 @@
         }
 
         // 주소 축약
-        function truncateAddress(address) {
-            if (!address) return '';
-            if (address.length <= 15) return address;
-            return `${address.slice(0, 6)}...${address.slice(-4)}`;
-        }
-
-
         // 컨트랙트 토글 (웹 버전 - 전역)
         window.toggleContracts = function(coinId, element) {
             console.log('[컨트랙트 토글] coinId:', coinId);
@@ -5096,30 +5085,11 @@
             }
         }
 
-        // ===== 중복 선택 처리 함수 =====
-        async function handleDuplicateSelection(duplicateChoices, apiKey) {
-            return new Promise(async (resolve) => {
-                const modal = document.getElementById('duplicateModal');
-                const choicesDiv = document.getElementById('duplicateChoices');
-                
-                if (!modal || !choicesDiv) {
-                    console.error('Duplicate modal not found');
-                    resolve([]);
-                    return;
-                }
-                
-                try {
-                    // 변수 선언을 최상단에!
-                    const enrichedChoices = [];
-                    const totalCoins = duplicateChoices.reduce((sum, choice) => sum + choice.matches.length, 0);
-                    let processedCoins = 0;
-                    
-                    // 로딩 표시
-                    choicesDiv.innerHTML = `
-                        <div style="text-align: center; padding: 20px;">
-                            <div style="display: inline-block; width: 40px; height: 40px; border: 3px solid rgba(63, 81, 181, 0.2); border-top-color: var(--navy-500); border-radius: 50%; animation: spin 1s linear infinite;"></div>
-                            <div style="margin-top: 15px; color: var(--gray-300); font-size: 1rem;">
-                                중복된 코인 정보를 가져오는 중...
+        // (중복된 handleDuplicateSelection 함수는 3730줄에 이미 정의되어 있음)
+        
+        // 이 부분의 코드는 원래 handleDuplicateSelection 함수 내부 코드였으나
+        // 함수 선언이 중복되어 제거함. 실제 함수는 3730줄의 정의를 사용
+        /*
                             </div>
                         </div>
                     `;
@@ -5281,6 +5251,7 @@
                 }
             });
         }
+        */
 
         // ===== 거래량 포맷 함수 =====
         function formatVolume(volume) {
@@ -7506,6 +7477,7 @@
 
 </body>
 </html>
+
 
 
 

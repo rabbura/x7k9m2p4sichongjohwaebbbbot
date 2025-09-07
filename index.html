@@ -3217,12 +3217,16 @@
                                     const newMarketCap = priceData.price * coin.circulating_supply;
                                     capDiv.textContent = formatMarketCap(newMarketCap);
                                     
-                                    // 거래소 표시 업데이트
-                                    const sourceDiv = capDiv.nextElementSibling;
-                                    if (sourceDiv && sourceDiv.style.color === 'var(--gray-400)') {
-                                        sourceDiv.textContent = `${priceData.source} 기준`;
-                                        sourceDiv.style.display = 'block';
+                                    // 거래소 표시 찾기 또는 생성
+                                    let sourceDiv = capDiv.parentElement.querySelector('div[style*="color: var(--gray-400)"]');
+                                    if (!sourceDiv) {
+                                        // 거래소 표시가 없으면 생성
+                                        sourceDiv = document.createElement('div');
+                                        sourceDiv.style.cssText = 'font-size: 0.75rem; color: var(--gray-400); margin-top: 2px;';
+                                        capDiv.parentElement.appendChild(sourceDiv);
                                     }
+                                    sourceDiv.textContent = `${priceData.source} 기준`;
+                                    sourceDiv.style.display = 'block';
                                 }
                             }
                         }
@@ -7515,6 +7519,8 @@
 
 </body>
 </html>
+
+
 
 
 

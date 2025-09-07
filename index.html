@@ -3192,7 +3192,41 @@
                     
                     // 실제 렌더링된 요소 기준으로 판단
                     if (hasMobileCards) {
-                        console.log(`[실시간 업데이트] 모바일 모드 - ${upperSymbol}: $${priceData.price} from ${priceData.source}`);
+                        // 모바일 업데이트 로직
+                        const mobileCard = document.querySelector(`.mobile-result-card[data-symbol="${upperSymbol}"]`);
+                        if (mobileCard) {
+                            // 실시간 가격 업데이트
+                            const priceDiv = mobileCard.querySelector('.realtime-price-mobile');
+                            if (priceDiv) {
+                                priceDiv.style.display = 'block';
+                                const priceValue = priceDiv.querySelector('.realtime-price-value');
+                                const sourceBadge = priceDiv.querySelector('.realtime-badge-small');
+                                if (priceValue) {
+                                    priceValue.textContent = formatPrice(priceData.price);
+                                }
+                                if (sourceBadge) {
+                                    sourceBadge.innerHTML = `${priceData.source}: $<span class="realtime-price-value">${formatPrice(priceData.price)}</span>`;
+                                }
+                            }
+                            
+                            // 실시간 시가총액 업데이트
+                            const capDiv = mobileCard.querySelector('.realtime-cap-mobile');
+                            if (capDiv) {
+                                const coin = results.find(c => c.symbol === upperSymbol);
+                                if (coin && coin.circulating_supply) {
+                                    const newMarketCap = priceData.price * coin.circulating_supply;
+                                    capDiv.textContent = formatMarketCap(newMarketCap);
+                                    
+                                    // 거래소 표시 업데이트
+                                    const sourceDiv = capDiv.nextElementSibling;
+                                    if (sourceDiv && sourceDiv.style.color === 'var(--gray-400)') {
+                                        sourceDiv.textContent = `${priceData.source} 기준`;
+                                        sourceDiv.style.display = 'block';
+                                    }
+                                }
+                            }
+                        }
+                        return; // 모바일 처리 후 종료
                     }
                     
                     const coinRows = document.querySelectorAll('.data-table tbody tr');
@@ -7481,7 +7515,6 @@
 
 </body>
 </html>
-
 
 
 

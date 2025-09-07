@@ -2960,17 +2960,6 @@
                         }
                     }
                     
-                    if (existingBox) {
-                        const sourceText = existingBox.textContent;
-                        // CEX 거래소 이름이 있으면 스킵
-                        if (sourceText.includes('바이낸스') || 
-                            sourceText.includes('바이빗') || 
-                            sourceText.includes('OKX') || 
-                            sourceText.includes('Gate.io')) {
-                            continue;
-                        }
-                    }
-                    
                     // DEX 가격 조회
                     for (const contract of coin.contracts) {
                         if (contract.address) {
@@ -3072,25 +3061,61 @@
                             }
                             
                             // 모바일 카드 업데이트
-                            const mobileCard = document.querySelector(`.mobile-result-card[data-symbol="${symbol}"]`);
+                            const mobileCard = document.querySelector(`.mobile-result-card[data-symbol="${upperSymbol}"]`);
                             if (mobileCard) {
-                                // 실시간 가격 업데이트
-                                const priceEl = mobileCard.querySelector(`#price-${symbol}`);
-                                if (priceEl) {
-                                    priceEl.style.display = 'inline';
-                                    const priceValue = priceEl.querySelector('.realtime-price-value');
-                                    if (priceValue) {
-                                        priceValue.textContent = formatPrice(priceData.price);
+                                // 현재가 섹션 찾기
+                                const infoItems = mobileCard.querySelectorAll('.info-item');
+                                for (const item of infoItems) {
+                                    const label = item.querySelector('.info-label');
+                                    if (label && label.textContent === '현재가') {
+                                        // 실시간 가격 요소 찾기 또는 생성
+                                        let realtimePrice = item.querySelector('.realtime-price-mobile');
+                                        if (!realtimePrice) {
+                                            realtimePrice = document.createElement('div');
+                                            realtimePrice.className = 'realtime-price-mobile';
+                                            realtimePrice.style.cssText = 'color: #10F981; font-weight: 600; font-size: 0.9rem; margin-top: 4px;';
+                                            item.appendChild(realtimePrice);
+                                        }
+                                        
+                                        // 거래소 이름은 처음에만 설정
+                                        if (!realtimePrice.hasAttribute('data-exchange-locked')) {
+                                            realtimePrice.innerHTML = `${priceData.source}: <span class="price-value">$${formatPrice(priceData.price)}</span>`;
+                                            realtimePrice.setAttribute('data-exchange-locked', 'true');
+                                        } else {
+                                            // 가격만 업데이트
+                                            const priceValue = realtimePrice.querySelector('.price-value');
+                                            if (priceValue) {
+                                                priceValue.textContent = `$${formatPrice(priceData.price)}`;
+                                            }
+                                        }
                                     }
-                                }
-                                
-                                // 실시간 시총 업데이트
-                                const capEl = mobileCard.querySelector(`#cap-${symbol}`);
-                                if (capEl) {
-                                    const coin = results.find(c => c.symbol === symbol.toUpperCase());
-                                    if (coin && coin.circulating_supply) {
-                                        const newCap = priceData.price * coin.circulating_supply;
-                                        capEl.textContent = formatMarketCap(newCap);
+                                    
+                                    // 시가총액 섹션
+                                    if (label && label.textContent === '시가총액') {
+                                        const coin = results.find(c => c.symbol === upperSymbol);
+                                        if (coin && coin.circulating_supply) {
+                                            const newCap = priceData.price * coin.circulating_supply;
+                                            
+                                            let realtimeCap = item.querySelector('.realtime-cap-mobile');
+                                            if (!realtimeCap) {
+                                                realtimeCap = document.createElement('div');
+                                                realtimeCap.className = 'realtime-cap-mobile';
+                                                realtimeCap.style.cssText = 'color: var(--accent-cyan); font-weight: 600; font-size: 0.9rem; margin-top: 4px;';
+                                                item.appendChild(realtimeCap);
+                                            }
+                                            
+                                            // 거래소 이름은 처음에만 설정
+                                            if (!realtimeCap.hasAttribute('data-exchange-locked')) {
+                                                realtimeCap.innerHTML = `${priceData.source}: <span class="cap-value">${formatMarketCap(newCap)}</span>`;
+                                                realtimeCap.setAttribute('data-exchange-locked', 'true');
+                                            } else {
+                                                // 시총만 업데이트
+                                                const capValue = realtimeCap.querySelector('.cap-value');
+                                                if (capValue) {
+                                                    capValue.textContent = formatMarketCap(newCap);
+                                                }
+                                            }
+                                        }
                                     }
                                 }
                             }
@@ -3098,7 +3123,7 @@
                             // 시가총액 업데이트 부분
                             const marketCapCell = row.querySelector('td[data-label="시가총액"]');
                             if (marketCapCell) {
-                                const coin = results.find(c => c.symbol === symbol.toUpperCase());
+                                const coin = results.find(c => c.symbol === upperSymbol);
                                 if (coin && coin.circulating_supply) {
                                     const newMarketCap = priceData.price * coin.circulating_supply;
                                     
@@ -3108,23 +3133,26 @@
                                         // display를 block으로 변경하여 표시
                                         realtimeDiv.style.display = 'block';
                                         
-                                        // 거래소 이름 업데이트
+                                        // 거래소 이름은 처음에만 설정하고 변경하지 않음
                                         const sourceSpan = realtimeDiv.querySelector('span[style*="color: var(--accent-cyan)"]');
-                                        if (sourceSpan) {
+                                        if (sourceSpan && !sourceSpan.hasAttribute('data-exchange-locked')) {
                                             sourceSpan.textContent = `${priceData.source} 기준`;
+                                            sourceSpan.setAttribute('data-exchange-locked', 'true');
                                         }
                                         
-                                        // 값 업데이트
+                                        // 값만 업데이트
                                         const valueSpan = realtimeDiv.querySelector('.realtime-value');
                                         if (valueSpan) {
                                             valueSpan.textContent = formatMarketCap(newMarketCap);
                                             
                                             // 애니메이션 효과
-                                            valueSpan.style.transition = 'all 0.3s';
-                                            valueSpan.style.transform = 'scale(1.05)';
-                                            setTimeout(() => {
-                                                valueSpan.style.transform = 'scale(1)';
-                                            }, 300);
+                                            if (!isMobile) {
+                                                valueSpan.style.transition = 'all 0.3s';
+                                                valueSpan.style.transform = 'scale(1.05)';
+                                                setTimeout(() => {
+                                                    valueSpan.style.transform = 'scale(1)';
+                                                }, 300);
+                                            }
                                         }
                                     } else {
                                         // 만약 realtime-marketcap이 없다면 생성 (구버전 호환)
@@ -3134,7 +3162,7 @@
                                             newRealtimeDiv.className = 'realtime-marketcap';
                                             newRealtimeDiv.style.cssText = 'display: block; padding-top: 6px; border-top: 1px solid rgba(255,255,255,0.1);';
                                             newRealtimeDiv.innerHTML = `
-                                                <span style="font-size: 0.7rem; color: var(--accent-cyan); display: block;">
+                                                <span style="font-size: 0.7rem; color: var(--accent-cyan); display: block;" data-exchange-locked="true">
                                                     ${priceData.source} 기준
                                                 </span>
                                                 <span class="realtime-value" style="color: var(--accent-cyan); font-weight: 700; font-size: 1rem;">
@@ -7425,6 +7453,9 @@
 
 </body>
 </html>
+
+
+
 
 
 

@@ -362,6 +362,14 @@
             .mobile-only-guide { display: block !important; }
         }
 
+        /* iOS 웹앱 터치 이벤트 최적화 */
+        .search-btn, .add-btn, .btn {
+            -webkit-tap-highlight-color: rgba(0,0,0,0);
+            -webkit-touch-callout: none;
+            touch-action: manipulation;
+            cursor: pointer;
+        }
+        
         /* 모바일 최적화 */
         @media (max-width: 768px) {
             .search-input-wrapper {
@@ -1892,10 +1900,83 @@
                 fileInput.addEventListener('change', handleFileUpload);
             }
             
+            // 모바일 앱에서 버튼 클릭이 안 되는 문제 해결
+            // 검색 버튼 이벤트 리스너 추가
+            const searchBtns = document.querySelectorAll('.search-btn');
+            searchBtns.forEach(btn => {
+                btn.removeEventListener('click', addCoinAndSearch); // 중복 방지
+                btn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    console.log('[모바일] 검색 버튼 클릭됨');
+                    addCoinAndSearch();
+                });
+                // 터치 이벤트도 추가
+                btn.addEventListener('touchend', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    console.log('[모바일] 검색 버튼 터치됨');
+                    addCoinAndSearch();
+                });
+            });
+            
+            // 추가 버튼 이벤트 리스너
+            const addBtns = document.querySelectorAll('.add-btn');
+            addBtns.forEach(btn => {
+                btn.removeEventListener('click', addCoin); // 중복 방지
+                btn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    console.log('[모바일] 추가 버튼 클릭됨');
+                    addCoin();
+                });
+                btn.addEventListener('touchend', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    console.log('[모바일] 추가 버튼 터치됨');
+                    addCoin();
+                });
+            });
+            
+            // 입력 필드 엔터키 이벤트 리스너 추가
+            const newCoinInput = document.getElementById('newCoin');
+            if (newCoinInput) {
+                newCoinInput.removeEventListener('keypress', handleEnterKey); // 중복 방지
+                newCoinInput.addEventListener('keypress', handleEnterKey);
+                
+                // 모바일에서 'Go' 버튼 처리
+                newCoinInput.addEventListener('keydown', function(e) {
+                    if (e.key === 'Enter' || e.keyCode === 13) {
+                        e.preventDefault();
+                        console.log('[모바일] 엔터키 입력됨');
+                        handleEnterKey(e);
+                    }
+                });
+            }
+            
             // iOS 스탠드얼론 모드 감지
             if (window.navigator.standalone) {
                 console.log('🎉 iOS 웹앱 모드로 실행 중');
                 document.body.classList.add('ios-standalone');
+                
+                // iOS 웹앱에서 추가 이벤트 바인딩
+                setTimeout(() => {
+                    // 모든 버튼에 대해 터치 이벤트 재바인딩
+                    document.addEventListener('touchstart', function(e) {
+                        if (e.target.classList.contains('search-btn') || 
+                            e.target.closest('.search-btn')) {
+                            e.preventDefault();
+                            console.log('[iOS 웹앱] 검색 버튼 터치 감지');
+                            addCoinAndSearch();
+                        }
+                        if (e.target.classList.contains('add-btn') || 
+                            e.target.closest('.add-btn')) {
+                            e.preventDefault();
+                            console.log('[iOS 웹앱] 추가 버튼 터치 감지');
+                            addCoin();
+                        }
+                    }, { passive: false });
+                }, 500);
             }
             
             // 모바일 디바이스 체크 및 최적화
@@ -2292,10 +2373,16 @@
         }
 
         function addCoinAndSearch() {
+            console.log('[검색 시작] addCoinAndSearch 호출됨');
             const newCoinInput = document.getElementById('newCoin');
-            if (!newCoinInput) return;
+            if (!newCoinInput) {
+                console.error('[검색 오류] 입력 필드를 찾을 수 없음');
+                return;
+            }
             
             const newCoin = newCoinInput.value.trim();
+            console.log('[검색 입력값]', newCoin);
+            
             if (newCoin) {
                 const formattedCoin = newCoin.toLowerCase().replace(/\s+/g, '-');
                 
@@ -2305,16 +2392,26 @@
                     return;
                 }
                 
-                coins = [cloudSync.sanitizeInput(formattedCoin)];
+                // cloudSync가 없는 경우 처리
+                if (typeof cloudSync !== 'undefined' && cloudSync.sanitizeInput) {
+                    coins = [cloudSync.sanitizeInput(formattedCoin)];
+                } else {
+                    coins = [formattedCoin];
+                }
+                
                 newCoinInput.value = '';
                 updateCoinList();
                 
+                console.log('[검색] 코인 추가됨:', coins);
+                
                 setTimeout(() => {
+                    console.log('[검색] fetchCoinData 호출');
                     fetchCoinData();
                 }, 100);
             } else {
                 // 입력이 없으면 기존 목록으로 조회
                 if (coins.length > 0) {
+                    console.log('[검색] 기존 목록으로 조회:', coins);
                     fetchCoinData();
                 } else {
                     showNotification('코인을 입력하거나 목록에 추가하세요', 'warning');
@@ -7334,6 +7431,7 @@
 
 </body>
 </html>
+
 
 
 

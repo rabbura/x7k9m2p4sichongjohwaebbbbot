@@ -3219,7 +3219,10 @@
                                     }
                                 } else {
                                     // 처음 생성할 때 거래소 정보 포함
-                                    this.createRealtimeBox(priceCell, priceData);
+                                    const box = this.createRealtimeBox(priceData);
+                                    if (box && priceCell) {
+                                        priceCell.appendChild(box);
+                                    }
                                 }
                                 
                                 // DEX인 경우 유동성 정보도 표시 (선택사항)
@@ -7461,9 +7464,6 @@
 
 </body>
 </html>
-
-
-
 
 
 

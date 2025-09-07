@@ -2786,6 +2786,18 @@
                 }
             }
 
+            // 배치 실시간 가격 조회 함수
+            async getBatchRealtimePrices(coins) {
+                // 실시간 가격이 있는 코인들만 업데이트
+                return coins.map(coin => {
+                    const cachedPrice = this.cache.get(coin.symbol.toUpperCase());
+                    if (cachedPrice) {
+                        coin.realtimePrice = cachedPrice;
+                    }
+                    return coin;
+                });
+            }
+
             // 웹소켓 스트림 시작 함수 수정
             startWebSocketStreams(coins) {
                 console.log('[WebSocket] 실시간 가격 스트림 시작, 코인 수:', coins.length);

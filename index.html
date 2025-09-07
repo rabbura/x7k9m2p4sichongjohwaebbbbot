@@ -3148,8 +3148,17 @@
                                         }
                                     }
                                 } else {
-                                    // 처음 생성할 때 거래소 정보 포함
-                                    this.createRealtimeBox(priceCell, priceData);
+                                    // createRealtimeBox 메서드가 없으므로 직접 HTML 생성
+                                    const realtimeBox = document.createElement('div');
+                                    realtimeBox.className = 'realtime-price-box';
+                                    realtimeBox.style.cssText = 'margin-top: 6px; padding: 6px; background: rgba(59, 130, 246, 0.1); border-radius: 6px; border: 1px solid rgba(59, 130, 246, 0.3);';
+                                    realtimeBox.innerHTML = `
+                                        <div style="font-size: 0.85rem; color: var(--gray-300); margin-bottom: 2px;">실시간 (${priceData.source})</div>
+                                        <div class="realtime-price-value" style="font-family: var(--font-mono); font-weight: 700; color: #10F981; font-size: 1rem;">
+                                            $${formatPrice(priceData.price)}
+                                        </div>
+                                    `;
+                                    priceCell.appendChild(realtimeBox);
                                 }
                                 
                                 // DEX인 경우 유동성 정보도 표시 (선택사항)
@@ -7392,6 +7401,9 @@
 
 </body>
 </html>
+
+
+
 
 
 

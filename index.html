@@ -1811,6 +1811,34 @@
             document.addEventListener('touchstart', function() {}, { passive: true });
         }
 
+        // 모바일 실시간 업데이트 테스트 함수 (디버깅용)
+        function testMobileRealtimeUpdate() {
+            console.log('[테스트] 모바일 실시간 업데이트 테스트 시작');
+            
+            // 현재 표시된 모든 코인에 대해 테스트
+            if (typeof results !== 'undefined' && results.length > 0) {
+                results.forEach((coin, index) => {
+                    setTimeout(() => {
+                        const testPrice = coin.current_price * (1 + (Math.random() - 0.5) * 0.1); // ±5% 랜덤 변동
+                        console.log(`[테스트] ${coin.symbol} 가격 업데이트: $${testPrice}`);
+                        
+                        if (realtimePriceSystem) {
+                            realtimePriceSystem.updateRealtimePrice(coin.symbol, {
+                                price: testPrice,
+                                source: '테스트',
+                                timestamp: Date.now()
+                            });
+                        }
+                    }, index * 500); // 0.5초 간격으로 순차 업데이트
+                });
+            } else {
+                console.log('[테스트] 결과가 없습니다. 먼저 코인을 조회해주세요.');
+            }
+        }
+        
+        // 전역으로 노출 (콘솔에서 테스트 가능)
+        window.testMobileUpdate = testMobileRealtimeUpdate;
+        
         // ===== 초기화 =====
         document.addEventListener('DOMContentLoaded', function() {
             // HTTPS 강제 (localhost 제외)
@@ -2742,7 +2770,16 @@
 
             // 웹소켓 스트림 시작 함수 수정
             startWebSocketStreams(coins) {
+                console.log('[WebSocket] 실시간 가격 스트림 시작, 코인 수:', coins.length);
+                console.log('[WebSocket] 코인 목록:', coins.map(c => c.symbol));
+                
                 this.stopWebSocketStreams();
+                
+                // 모바일 체크
+                const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || window.innerWidth <= 768;
+                if (isMobile) {
+                    console.log('[WebSocket] 모바일 환경 감지 - 모바일 업데이트 모드 활성화');
+                }
                 
                 // CEX 웹소켓
                 this.connectBinanceWebSocket(coins);
@@ -3067,6 +3104,15 @@
                 
                 try {
                     const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || window.innerWidth <= 768;
+                    
+                    // 모바일 카드가 실제로 존재하는지 체크
+                    const hasMobileCards = document.querySelector('.mobile-result-card') !== null;
+                    
+                    // 실제 렌더링된 요소 기준으로 판단
+                    if (hasMobileCards) {
+                        console.log(`[실시간 업데이트] 모바일 모드 - ${upperSymbol}: $${priceData.price} from ${priceData.source}`);
+                    }
+                    
                     const coinRows = document.querySelectorAll('.data-table tbody tr');
                     
                     coinRows.forEach(row => {
@@ -3129,411 +3175,129 @@
                             // 모바일 카드 업데이트
                             const mobileCard = document.querySelector(`.mobile-result-card[data-symbol="${upperSymbol}"]`);
                             if (mobileCard) {
-                                // 현재가 섹션 찾기
-                                const infoItems = mobileCard.querySelectorAll('.info-item');
-                                for (const item of infoItems) {
-                                    const label = item.querySelector('.info-label');
-                                    if (label && label.textContent === '현재가') {
-                                        // 실시간 가격 요소 찾기 또는 생성
-                                        let realtimePrice = item.querySelector('.realtime-price-mobile');
-                                        if (!realtimePrice) {
-                                            realtimePrice = document.createElement('div');
-                                            realtimePrice.className = 'realtime-price-mobile';
-                                            realtimePrice.style.cssText = 'color: #10F981; font-weight: 600; font-size: 0.9rem; margin-top: 4px;';
-                                            item.appendChild(realtimePrice);
-                                        }
-                                        
-                                        // 거래소 이름은 처음에만 설정
-                                        if (!realtimePrice.hasAttribute('data-exchange-locked')) {
-                                            realtimePrice.innerHTML = `${priceData.source}: <span class="price-value">$${formatPrice(priceData.price)}</span>`;
-                                            realtimePrice.setAttribute('data-exchange-locked', 'true');
-                                        } else {
-                                            // 가격만 업데이트
-                                            const priceValue = realtimePrice.querySelector('.price-value');
-                                            if (priceValue) {
-                                                priceValue.textContent = `$${formatPrice(priceData.price)}`;
-                                            }
-                                        }
-                                    }
+                                console.log(`[모바일 업데이트] ${upperSymbol} 카드 찾음`);
+                                
+                                // 현재가 섹션 찾기 - ID로 직접 찾기
+                                const priceElement = document.getElementById(`price-${upperSymbol}`);
+                                if (priceElement) {
+                                    priceElement.style.display = 'block';
+                                    const priceValueEl = priceElement.querySelector('.realtime-price-value');
                                     
-                                    // 시가총액 섹션
-                                    if (label && label.textContent === '시가총액') {
-                                        const coin = results.find(c => c.symbol === upperSymbol);
-                                        if (coin && coin.circulating_supply) {
-                                            const newCap = priceData.price * coin.circulating_supply;
-                                            
-                                            let realtimeCap = item.querySelector('.realtime-cap-mobile');
-                                            if (!realtimeCap) {
-                                                realtimeCap = document.createElement('div');
-                                                realtimeCap.className = 'realtime-cap-mobile';
-                                                realtimeCap.style.cssText = 'color: var(--accent-cyan); font-weight: 600; font-size: 0.9rem; margin-top: 4px;';
-                                                item.appendChild(realtimeCap);
-                                            }
-                                            
-                                            // 거래소 이름은 처음에만 설정
-                                            if (!realtimeCap.hasAttribute('data-exchange-locked')) {
-                                                realtimeCap.innerHTML = `${priceData.source}: <span class="cap-value">${formatMarketCap(newCap)}</span>`;
-                                                realtimeCap.setAttribute('data-exchange-locked', 'true');
-                                            } else {
-                                                // 시총만 업데이트
-                                                const capValue = realtimeCap.querySelector('.cap-value');
-                                                if (capValue) {
-                                                    capValue.textContent = formatMarketCap(newCap);
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                            
-                            // 시가총액 업데이트 부분
-                            const marketCapCell = row.querySelector('td[data-label="시가총액"]');
-                            if (marketCapCell) {
-                                const coin = results.find(c => c.symbol === upperSymbol);
-                                if (coin && coin.circulating_supply) {
-                                    const newMarketCap = priceData.price * coin.circulating_supply;
+                                    // 이전 가격 저장
+                                    const oldPrice = priceValueEl ? parseFloat(priceValueEl.textContent.replace(/[,$]/g, '')) : 0;
+                                    const newPrice = priceData.price;
                                     
-                                    // 이미 HTML에 존재하는 realtime-marketcap div 찾기
-                                    let realtimeDiv = marketCapCell.querySelector('.realtime-marketcap');
-                                    if (realtimeDiv) {
-                                        // display를 block으로 변경하여 표시
-                                        realtimeDiv.style.display = 'block';
-                                        
-                                        // 거래소 이름은 처음에만 설정하고 변경하지 않음
-                                        const sourceSpan = realtimeDiv.querySelector('span[style*="color: var(--accent-cyan)"]');
-                                        if (sourceSpan && !sourceSpan.hasAttribute('data-exchange-locked')) {
-                                            sourceSpan.textContent = `${priceData.source} 기준`;
-                                            sourceSpan.setAttribute('data-exchange-locked', 'true');
-                                        }
-                                        
-                                        // 값만 업데이트
-                                        const valueSpan = realtimeDiv.querySelector('.realtime-value');
-                                        if (valueSpan) {
-                                            valueSpan.textContent = formatMarketCap(newMarketCap);
+                                    if (priceValueEl) {
+                                        // 가격 업데이트 애니메이션
+                                        if (oldPrice !== newPrice) {
+                                            priceValueEl.style.transition = 'all 0.3s';
+                                            priceValueEl.style.color = newPrice > oldPrice ? '#10F981' : '#FF6B6B';
+                                            priceValueEl.textContent = formatPrice(newPrice);
                                             
-                                            // 애니메이션 효과
-                                            if (!isMobile) {
-                                                valueSpan.style.transition = 'all 0.3s';
-                                                valueSpan.style.transform = 'scale(1.05)';
-                                                setTimeout(() => {
-                                                    valueSpan.style.transform = 'scale(1)';
-                                                }, 300);
-                                            }
+                                            // 플래시 효과
+                                            mobileCard.style.background = newPrice > oldPrice ? 
+                                                'linear-gradient(135deg, rgba(16, 249, 129, 0.1) 0%, rgba(255, 255, 255, 0.03) 100%)' :
+                                                'linear-gradient(135deg, rgba(255, 107, 107, 0.1) 0%, rgba(255, 255, 255, 0.03) 100%)';
+                                            
+                                            setTimeout(() => {
+                                                priceValueEl.style.color = '#10F981';
+                                                mobileCard.style.background = 'linear-gradient(135deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.03) 100%)';
+                                            }, 500);
                                         }
                                     } else {
-                                        // 만약 realtime-marketcap이 없다면 생성 (구버전 호환)
-                                        const existingContent = marketCapCell.querySelector('div');
-                                        if (existingContent) {
-                                            const newRealtimeDiv = document.createElement('div');
-                                            newRealtimeDiv.className = 'realtime-marketcap';
-                                            newRealtimeDiv.style.cssText = 'display: block; padding-top: 6px; border-top: 1px solid rgba(255,255,255,0.1);';
-                                            newRealtimeDiv.innerHTML = `
-                                                <span style="font-size: 0.7rem; color: var(--accent-cyan); display: block;" data-exchange-locked="true">
-                                                    ${priceData.source} 기준
-                                                </span>
-                                                <span class="realtime-value" style="color: var(--accent-cyan); font-weight: 700; font-size: 1rem;">
-                                                    ${formatMarketCap(newMarketCap)}
-                                                </span>
-                                            `;
-                                            existingContent.appendChild(newRealtimeDiv);
+                                        priceElement.innerHTML = `
+                                            <span class="realtime-badge-small" style="color: #10F981; font-weight: 700;">
+                                                ${priceData.source}: $<span class="realtime-price-value">${formatPrice(priceData.price)}</span>
+                                            </span>
+                                        `;
+                                    }
+                                    console.log(`[모바일 업데이트] ${upperSymbol} 가격 업데이트: $${priceData.price}`);
+                                }
+                                
+                                // 실시간 시총 업데이트 - ID로 직접 찾기
+                                const capElement = document.getElementById(`cap-${upperSymbol}`);
+                                if (capElement) {
+                                    const coin = results.find(c => c.symbol === upperSymbol);
+                                    if (coin && coin.circulating_supply) {
+                                        const newCap = priceData.price * coin.circulating_supply;
+                                        
+                                        // 시총 컨테이너가 div인지 확인
+                                        if (capElement.tagName === 'DIV') {
+                                            capElement.innerHTML = formatMarketCap(newCap);
+                                        } else {
+                                            capElement.textContent = formatMarketCap(newCap);
                                         }
+                                        
+                                        // 플래시 효과
+                                        capElement.style.transition = 'all 0.3s';
+                                        capElement.style.transform = 'scale(1.05)';
+                                        capElement.style.color = '#10F981';
+                                        
+                                        setTimeout(() => {
+                                            capElement.style.transform = 'scale(1)';
+                                            capElement.style.color = 'var(--accent-cyan)';
+                                        }, 300);
+                                        
+                                        // 거래소 정보 업데이트
+                                        const parentInfoItem = capElement.closest('.info-item');
+                                        if (parentInfoItem) {
+                                            let sourceEl = parentInfoItem.querySelector('.exchange-source');
+                                            if (!sourceEl) {
+                                                sourceEl = document.createElement('div');
+                                                sourceEl.className = 'exchange-source';
+                                                sourceEl.style.cssText = 'font-size: 0.75rem; color: var(--gray-400); margin-top: 2px;';
+                                                parentInfoItem.querySelector('.info-value').appendChild(sourceEl);
+                                            }
+                                            sourceEl.textContent = `${priceData.source} 기준`;
+                                        }
+                                        
+                                        console.log(`[모바일 업데이트] ${upperSymbol} 시총 업데이트: ${formatMarketCap(newCap)}`);
                                     }
                                 }
+                                
+                                // 더 명확한 방법 - info-item 내 업데이트
+                                const infoItems = mobileCard.querySelectorAll('.info-item');
+                                infoItems.forEach(item => {
+                                    const label = item.querySelector('.info-label');
+                                    if (label && label.textContent === '현재가') {
+                                        const valueEl = item.querySelector('.info-value');
+                                        if (valueEl) {
+                                            // 실시간 가격 표시 영역 찾기/생성
+                                            let realtimeEl = valueEl.querySelector('.realtime-price-display');
+                                            if (!realtimeEl) {
+                                                realtimeEl = document.createElement('div');
+                                                realtimeEl.className = 'realtime-price-display';
+                                                realtimeEl.style.cssText = 'color: #10F981; font-weight: 700; margin-top: 4px;';
+                                                valueEl.appendChild(realtimeEl);
+                                            }
+                                            realtimeEl.innerHTML = `${priceData.source}: $${formatPrice(priceData.price)}`;
+                                        }
+                                    }
+                                    
+                                    if (label && label.textContent === '실시간 시총') {
+                                        const valueEl = item.querySelector('.info-value');
+                                        if (valueEl) {
+                                            const coin = results.find(c => c.symbol === upperSymbol);
+                                            if (coin && coin.circulating_supply) {
+                                                const newCap = priceData.price * coin.circulating_supply;
+                                                valueEl.innerHTML = `
+                                                    <span style="color: var(--accent-cyan); font-weight: 700;">
+                                                        ${formatMarketCap(newCap)}
+                                                    </span>
+                                                    <span style="font-size: 0.75rem; color: var(--gray-400); display: block;">
+                                                        ${priceData.source} 기준
+                                                    </span>
+                                                `;
+                                            }
+                                        }
+                                    }
+                                });
                             }
                         }
                     });
                 } catch (error) {
                     console.error('가격 업데이트 오류:', symbol, error);
                 }
-            }
-
-            // 실시간 시총 업데이트
-            updateRealtimeMarketCap(row, symbol, price) {
-                const marketCapCell = row.querySelector('td[data-label="실시간 시총"]');
-                if (marketCapCell) {
-                    // results 배열에서 해당 코인 찾기
-                    const coin = results.find(c => c.symbol === symbol.toUpperCase());
-                    if (coin && coin.circulating_supply) {
-                        const newMarketCap = price * coin.circulating_supply;
-                        
-                        const marketCapEl = marketCapCell.querySelector('.realtime-marketcap-value') ||
-                                           marketCapCell.querySelector('div[style*="font-size: 0.9rem"]');
-                        
-                        if (marketCapEl) {
-                            marketCapEl.textContent = formatMarketCap(newMarketCap);
-                            
-                            // 변화 애니메이션
-                            marketCapEl.style.transition = 'all 0.3s';
-                            marketCapEl.style.color = '#06B6D4';
-                            setTimeout(() => {
-                                marketCapEl.style.color = '';
-                            }, 300);
-                        }
-                    }
-                }
-            }
-
-            // 거래소 표시 초기화 (우선순위 변경 시)
-            resetExchangeDisplay(symbol) {
-                // 웹 테이블에서 거래소 이름 초기화 및 업데이트
-                const rows = document.querySelectorAll('.data-table tbody tr');
-                rows.forEach(row => {
-                    const coinSymbolEl = row.querySelector('.coin-symbol');
-                    if (coinSymbolEl && coinSymbolEl.textContent === symbol) {
-                        // 현재가 컬럼의 거래소 표시 초기화
-                        const priceCell = row.querySelector('td[data-label="현재가"]');
-                        if (priceCell) {
-                            const realtimeBox = priceCell.querySelector('.realtime-price-box');
-                            if (realtimeBox) {
-                                const sourceEl = realtimeBox.querySelector('.realtime-price-source');
-                                if (sourceEl && sourceEl.hasAttribute('data-exchange-locked')) {
-                                    sourceEl.removeAttribute('data-exchange-locked');
-                                }
-                            }
-                        }
-                        
-                        // 시가총액 컬럼의 거래소 표시 초기화
-                        const marketCapCell = row.querySelector('td[data-label="시가총액"]');
-                        if (marketCapCell) {
-                            const sourceSpan = marketCapCell.querySelector('span[data-exchange-locked="true"]');
-                            if (sourceSpan) {
-                                sourceSpan.removeAttribute('data-exchange-locked');
-                            }
-                        }
-                    }
-                });
-                
-                // 모바일 카드에서 거래소 이름 초기화
-                const mobileCard = document.querySelector(`.mobile-result-card[data-symbol="${symbol}"]`);
-                if (mobileCard) {
-                    const realtimeElements = mobileCard.querySelectorAll('[data-exchange-locked="true"]');
-                    realtimeElements.forEach(el => {
-                        el.removeAttribute('data-exchange-locked');
-                    });
-                }
-            }
-            
-            // 정리 함수 수정
-            stopWebSocketStreams() {
-                // 웹소켓 정리
-                this.websockets.forEach((ws, key) => {
-                    if (ws.readyState === WebSocket.OPEN) {
-                        ws.close();
-                    }
-                });
-                this.websockets.clear();
-                
-                // DEX 폴링 정리
-                if (this.dexPollingInterval) {
-                    clearInterval(this.dexPollingInterval);
-                    this.dexPollingInterval = null;
-                }
-                this.pollingCoins = [];
-                
-                // 고정된 거래소 정보 초기화
-                this.lockedExchanges.clear();
-                console.log('[거래소 고정 초기화] 모든 코인의 거래소 고정 해제');
-                
-                const statusEl = document.getElementById('websocketStatus');
-                if (statusEl) {
-                    statusEl.style.display = 'none';
-                }
-            }
-
-            // 심볼 변환
-            convertSymbol(symbol, exchange) {
-                const upperSymbol = symbol.toUpperCase();
-                if (exchange === 'binance') return upperSymbol + 'USDT';
-                else if (exchange === 'bybit') return upperSymbol + 'USDT';
-                else if (exchange === 'gate') return upperSymbol + '_USDT';
-                return upperSymbol;
-            }
-
-            // 바이낸스 가격
-            async getBinancePrice(symbol) {
-                // GitHub Pages에서는 CORS 때문에 실패하지만 괜찮음
-                // WebSocket이 대신 작동
-                try {
-                    const pair = this.convertSymbol(symbol, 'binance');
-                    const response = await fetch(`https://api.binance.com/api/v3/ticker/price?symbol=${pair}`);
-                    if (!response.ok) return null;
-                    const data = await response.json();
-                    if (data && data.price) {
-                        return { price: parseFloat(data.price), source: '바이낸스', timestamp: Date.now() };
-                    }
-                } catch (error) { 
-                    console.log(`Binance REST failed, WebSocket will handle: ${symbol}`);
-                }
-                return null;
-            }
-
-            // 바이빗 가격
-            async getBybitPrice(symbol) {
-                try {
-                    const pair = this.convertSymbol(symbol, 'bybit');
-                    const response = await fetch(`https://api.bybit.com/v5/market/tickers?category=spot&symbol=${pair}`);
-                    if (!response.ok) return null;
-                    const data = await response.json();
-                    if (data?.result?.list?.[0]) {
-                        return { price: parseFloat(data.result.list[0].lastPrice), source: '바이빗', timestamp: Date.now() };
-                    }
-                } catch (error) { console.log(`Bybit failed: ${symbol}`); }
-                return null;
-            }
-
-            // OKX 가격 조회 함수 추가
-            async getOKXPrice(symbol) {
-                try {
-                    const pair = symbol.toUpperCase() + '-USDT';
-                    const response = await fetch(`https://www.okx.com/api/v5/market/ticker?instId=${pair}`);
-                    
-                    if (!response.ok) return null;
-                    
-                    const data = await response.json();
-                    if (data?.data?.[0]?.last) {
-                        return { 
-                            price: parseFloat(data.data[0].last), 
-                            source: 'OKX', 
-                            timestamp: Date.now() 
-                        };
-                    }
-                } catch (error) { 
-                    console.log(`OKX failed: ${symbol}`);
-                }
-                return null;
-            }
-
-            // Gate.io 가격
-            async getGatePrice(symbol) {
-                try {
-                    const pair = this.convertSymbol(symbol, 'gate');
-                    const proxyUrl = 'https://corsproxy.io/?';
-                    const apiUrl = `https://api.gateio.ws/api/v4/spot/tickers?currency_pair=${pair}`;
-                    
-                    const response = await fetch(proxyUrl + encodeURIComponent(apiUrl));
-                    if (!response.ok) return null;
-                    const data = await response.json();
-                    if (data?.[0]?.last) {
-                        return { price: parseFloat(data[0].last), source: 'Gate.io', timestamp: Date.now() };
-                    }
-                } catch (error) {
-                    console.log(`Gate with proxy failed: ${symbol}`);
-                }
-                return null;
-            }
-
-            // DEX 가격 조회 함수 개선
-            async getDexPrice(contractAddress) {
-                try {
-                    const response = await fetch(`https://api.dexscreener.com/latest/dex/tokens/${contractAddress}`);
-                    if (!response.ok) return null;
-                    
-                    const data = await response.json();
-                    if (data?.pairs?.[0]) {
-                        // 가장 유동성 높은 페어 선택
-                        const topPair = data.pairs.reduce((best, pair) => {
-                            const currentLiquidity = pair.liquidity?.usd || 0;
-                            const bestLiquidity = best.liquidity?.usd || 0;
-                            return currentLiquidity > bestLiquidity ? pair : best;
-                        }, data.pairs[0]);
-                        
-                        return {
-                            price: parseFloat(topPair.priceUsd || 0),
-                            source: `${topPair.dexId?.toUpperCase() || 'DEX'}`,
-                            timestamp: Date.now(),
-                            volume24h: topPair.volume?.h24 || 0,
-                            liquidity: topPair.liquidity?.usd || 0,
-                            priceChange24h: topPair.priceChange?.h24 || 0
-                        };
-                    }
-                } catch (error) { 
-                    console.log(`DEX failed: ${contractAddress}`); 
-                }
-                return null;
-            }
-
-            // getRealtimePrice 함수 수정 - 우선순위 변경
-            async getRealtimePrice(symbol, contracts = []) {
-                // 1순위: 바이낸스
-                let priceData = await this.getBinancePrice(symbol);
-                
-                // 2순위: 바이빗
-                if (!priceData) priceData = await this.getBybitPrice(symbol);
-                
-                // 3순위: OKX (새로 추가)
-                if (!priceData) priceData = await this.getOKXPrice(symbol);
-                
-                // 4순위: Gate.io
-                if (!priceData) priceData = await this.getGatePrice(symbol);
-                
-                // 5순위: DEX (컨트랙트 주소가 있는 경우)
-                if (!priceData && contracts?.length > 0) {
-                    for (const contract of contracts) {
-                        if (contract.address) {
-                            priceData = await this.getDexPrice(contract.address);
-                            if (priceData) break;
-                        }
-                    }
-                }
-                
-                return priceData;
-            }
-
-            // 일괄 조회
-            async getBatchRealtimePrices(coins) {
-                const promises = coins.map(async coin => {
-                    const realtimePrice = await this.getRealtimePrice(coin.symbol, coin.contracts);
-                    return { ...coin, realtimePrice };
-                });
-                return await Promise.all(promises);
-            }
-
-            // 헬퍼 함수들
-            formatPrice(price) {
-                if (!price) return 'N/A';
-                if (price < 0.00001) return price.toExponential(2);
-                if (price < 1) return price.toFixed(6);
-                if (price < 100) return price.toFixed(4);
-                if (price < 10000) return price.toFixed(2);
-                return price.toLocaleString('en-US', { maximumFractionDigits: 0 });
-            }
-
-            formatMarketCap(value) {
-                if (!value) return 'N/A';
-                if (value >= 1e12) return '$' + (value / 1e12).toFixed(2) + 'T';
-                if (value >= 1e9) return '$' + (value / 1e9).toFixed(2) + 'B';
-                if (value >= 1e6) return '$' + (value / 1e6).toFixed(2) + 'M';
-                if (value >= 1e3) return '$' + (value / 1e3).toFixed(2) + 'K';
-                return '$' + value.toFixed(0);
-            }
-            // 실시간 박스 생성
-            createRealtimeBox(priceCell, priceData) {
-                const realtimeHtml = `
-                    <div class="realtime-price-box" style="
-                        margin-top: 6px; 
-                        padding: 6px; 
-                        background: rgba(59, 130, 246, 0.1); 
-                        border-radius: 6px; 
-                        border: 1px solid rgba(59, 130, 246, 0.3);
-                    ">
-                        <div class="realtime-price-source" style="
-                            font-size: 0.85rem; 
-                            color: var(--gray-300); 
-                            margin-bottom: 2px;
-                        ">
-                            실시간 (${priceData.source})
-                        </div>
-                        <div class="realtime-price-value" style="
-                            font-family: var(--font-mono); 
-                            font-weight: 700; 
-                            color: #10F981; 
-                            font-size: 1rem;
-                        ">
-                            $${formatPrice(priceData.price)}
-                        </div>
-                    </div>
-                `;
-                priceCell.insertAdjacentHTML('beforeend', realtimeHtml);
             }
         }
 
@@ -4546,12 +4310,14 @@
                             <div class="info-item">
                                 <span class="info-label">현재가</span>
                                 <span class="info-value">
-                                    <span class="static-price">$${formatPrice(coin.current_price)}</span>
-                                    <span class="realtime-price-mobile" id="price-${coin.symbol}" style="${coin.realtimePrice ? '' : 'display: none;'}">
-                                        <span class="realtime-badge-small">
-                                            실시간: $<span class="realtime-price-value">${coin.realtimePrice ? formatPrice(coin.realtimePrice.price) : ''}</span>
+                                    <div class="static-price" style="font-size: 0.95rem; color: var(--gray-300);">
+                                        CoinGecko: $${formatPrice(coin.current_price)}
+                                    </div>
+                                    <div class="realtime-price-mobile" id="price-${coin.symbol}" style="display: ${coin.realtimePrice ? 'block' : 'none'};">
+                                        <span class="realtime-badge-small" style="color: #10F981; font-weight: 700;">
+                                            ${coin.realtimePrice ? coin.realtimePrice.source : ''}: $<span class="realtime-price-value">${coin.realtimePrice ? formatPrice(coin.realtimePrice.price) : '0'}</span>
                                         </span>
-                                    </span>
+                                    </div>
                                 </span>
                             </div>
                             
@@ -4572,11 +4338,18 @@
                             
                             <div class="info-item">
                                 <span class="info-label">실시간 시총</span>
-                                <span class="info-value realtime-cap-mobile" id="cap-${coin.symbol}" style="color: var(--accent-cyan);">
-                                    ${coin.realtimePrice && coin.circulating_supply ? 
-                                        formatMarketCap(coin.realtimePrice.price * coin.circulating_supply) : 
-                                        'N/A'
-                                    }
+                                <span class="info-value">
+                                    <div class="realtime-cap-mobile" id="cap-${coin.symbol}" style="color: var(--accent-cyan); font-weight: 700; font-size: 0.95rem;">
+                                        ${coin.realtimePrice && coin.circulating_supply ? 
+                                            formatMarketCap(coin.realtimePrice.price * coin.circulating_supply) : 
+                                            '대기중...'
+                                        }
+                                    </div>
+                                    ${coin.realtimePrice ? `
+                                        <div style="font-size: 0.75rem; color: var(--gray-400); margin-top: 2px;">
+                                            ${coin.realtimePrice.source} 기준
+                                        </div>
+                                    ` : ''}
                                 </span>
                             </div>
                             
@@ -7561,6 +7334,9 @@
 
 </body>
 </html>
+
+
+
 
 
 

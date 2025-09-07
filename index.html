@@ -3446,6 +3446,19 @@
                     console.error('가격 업데이트 오류:', symbol, error);
                 }
             }
+            
+            // 배치 실시간 가격 조회 메서드
+            async getBatchRealtimePrices(coins) {
+                console.log('[실시간 가격] 배치 조회 시작, 코인 수:', coins.length);
+                
+                // 실시간 가격 업데이트를 위한 웹소켓 연결
+                if (coins.length > 0) {
+                    this.startWebSocketStreams(coins);
+                }
+                
+                // 즉시 결과 반환 (웹소켓은 백그라운드에서 업데이트)
+                return coins;
+            }
         }
 
         // RealtimePriceSystem 인스턴스는 1885줄에서 이미 생성됨

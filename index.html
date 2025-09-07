@@ -362,14 +362,6 @@
             .mobile-only-guide { display: block !important; }
         }
 
-        /* iOS 웹앱 터치 이벤트 최적화 */
-        .search-btn, .add-btn, .btn {
-            -webkit-tap-highlight-color: rgba(0,0,0,0);
-            -webkit-touch-callout: none;
-            touch-action: manipulation;
-            cursor: pointer;
-        }
-        
         /* 모바일 최적화 */
         @media (max-width: 768px) {
             .search-input-wrapper {
@@ -1881,7 +1873,7 @@
             updateLastTime();
             loadMemo();
             
-            // 실시간 가격 시스템 초기화 (전역 변수는 1039줄에 선언됨)
+            // 실시간 가격 시스템 초기화
             realtimePriceSystem = new RealtimePriceSystem();
             
             // 페이지 종료 시 웹소켓 정리
@@ -1900,102 +1892,10 @@
                 fileInput.addEventListener('change', handleFileUpload);
             }
             
-            // 모바일 앱에서 버튼 클릭이 안 되는 문제 해결
-            // 검색 버튼 이벤트 리스너 추가
-            const searchBtns = document.querySelectorAll('.search-btn');
-            searchBtns.forEach(btn => {
-                btn.removeEventListener('click', addCoinAndSearch); // 중복 방지
-                btn.addEventListener('click', function(e) {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    console.log('[모바일] 검색 버튼 클릭됨');
-                    addCoinAndSearch();
-                });
-                // 터치 이벤트도 추가
-                btn.addEventListener('touchend', function(e) {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    console.log('[모바일] 검색 버튼 터치됨');
-                    addCoinAndSearch();
-                });
-            });
-            
-            // 추가 버튼 이벤트 리스너
-            const addBtns = document.querySelectorAll('.add-btn');
-            addBtns.forEach(btn => {
-                btn.removeEventListener('click', addCoin); // 중복 방지
-                btn.addEventListener('click', function(e) {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    console.log('[모바일] 추가 버튼 클릭됨');
-                    addCoin();
-                });
-                btn.addEventListener('touchend', function(e) {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    console.log('[모바일] 추가 버튼 터치됨');
-                    addCoin();
-                });
-            });
-            
-            // 입력 필드 엔터키 이벤트 리스너 추가
-            const newCoinInput = document.getElementById('newCoin');
-            if (newCoinInput) {
-                newCoinInput.removeEventListener('keypress', handleEnterKey); // 중복 방지
-                newCoinInput.addEventListener('keypress', handleEnterKey);
-                
-                // 모바일에서 'Go' 버튼 처리
-                newCoinInput.addEventListener('keydown', function(e) {
-                    if (e.key === 'Enter' || e.keyCode === 13) {
-                        e.preventDefault();
-                        console.log('[모바일] 엔터키 입력됨');
-                        handleEnterKey(e);
-                    }
-                });
-            }
-            
-            // 코인 정보 조회 버튼 이벤트 리스너 추가
-            const fetchButton = document.getElementById('fetchButton');
-            if (fetchButton) {
-                fetchButton.removeEventListener('click', fetchCoinData); // 중복 방지
-                fetchButton.addEventListener('click', function(e) {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    console.log('[모바일] 조회 버튼 클릭됨');
-                    fetchCoinData();
-                });
-                // 터치 이벤트도 추가
-                fetchButton.addEventListener('touchend', function(e) {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    console.log('[모바일] 조회 버튼 터치됨');
-                    fetchCoinData();
-                });
-            }
-            
             // iOS 스탠드얼론 모드 감지
             if (window.navigator.standalone) {
                 console.log('🎉 iOS 웹앱 모드로 실행 중');
                 document.body.classList.add('ios-standalone');
-                
-                // iOS 웹앱에서 추가 이벤트 바인딩
-                setTimeout(() => {
-                    // 모든 버튼에 대해 터치 이벤트 재바인딩
-                    document.addEventListener('touchstart', function(e) {
-                        if (e.target.classList.contains('search-btn') || 
-                            e.target.closest('.search-btn')) {
-                            e.preventDefault();
-                            console.log('[iOS 웹앱] 검색 버튼 터치 감지');
-                            addCoinAndSearch();
-                        }
-                        if (e.target.classList.contains('add-btn') || 
-                            e.target.closest('.add-btn')) {
-                            e.preventDefault();
-                            console.log('[iOS 웹앱] 추가 버튼 터치 감지');
-                            addCoin();
-                        }
-                    }, { passive: false });
-                }, 500);
             }
             
             // 모바일 디바이스 체크 및 최적화
@@ -2392,16 +2292,10 @@
         }
 
         function addCoinAndSearch() {
-            console.log('[검색 시작] addCoinAndSearch 호출됨');
             const newCoinInput = document.getElementById('newCoin');
-            if (!newCoinInput) {
-                console.error('[검색 오류] 입력 필드를 찾을 수 없음');
-                return;
-            }
+            if (!newCoinInput) return;
             
             const newCoin = newCoinInput.value.trim();
-            console.log('[검색 입력값]', newCoin);
-            
             if (newCoin) {
                 const formattedCoin = newCoin.toLowerCase().replace(/\s+/g, '-');
                 
@@ -2411,26 +2305,16 @@
                     return;
                 }
                 
-                // cloudSync가 없는 경우 처리
-                if (typeof cloudSync !== 'undefined' && cloudSync.sanitizeInput) {
-                    coins = [cloudSync.sanitizeInput(formattedCoin)];
-                } else {
-                    coins = [formattedCoin];
-                }
-                
+                coins = [cloudSync.sanitizeInput(formattedCoin)];
                 newCoinInput.value = '';
                 updateCoinList();
                 
-                console.log('[검색] 코인 추가됨:', coins);
-                
                 setTimeout(() => {
-                    console.log('[검색] fetchCoinData 호출');
                     fetchCoinData();
                 }, 100);
             } else {
                 // 입력이 없으면 기존 목록으로 조회
                 if (coins.length > 0) {
-                    console.log('[검색] 기존 목록으로 조회:', coins);
                     fetchCoinData();
                 } else {
                     showNotification('코인을 입력하거나 목록에 추가하세요', 'warning');
@@ -2882,37 +2766,6 @@
                     'PANCAKESWAP': 6,
                     'DEX': 7
                 };
-            }
-
-            // 웹소켓 스트림 종료 함수
-            stopWebSocketStreams() {
-                console.log('[WebSocket] 기존 연결 종료 중...');
-                
-                // 모든 웹소켓 연결 종료
-                this.websockets.forEach((ws, key) => {
-                    try {
-                        if (ws && ws.readyState === WebSocket.OPEN) {
-                            ws.close();
-                            console.log(`[WebSocket] ${key} 연결 종료됨`);
-                        }
-                    } catch (error) {
-                        console.error(`[WebSocket] ${key} 종료 오류:`, error);
-                    }
-                });
-                this.websockets.clear();
-                
-                // DEX 폴링 중지
-                if (this.dexPollingInterval) {
-                    clearInterval(this.dexPollingInterval);
-                    this.dexPollingInterval = null;
-                    console.log('[DEX] 폴링 중지됨');
-                }
-                
-                // 캐시 및 콜백 초기화
-                this.cache.clear();
-                this.priceCallbacks.clear();
-                this.pollingCoins = [];
-                this.lockedExchanges.clear();
             }
 
             // 웹소켓 스트림 시작 함수 수정
@@ -3440,36 +3293,78 @@
                                     }
                                 });
                             }
+                            }
+                            
+                            // 시가총액 업데이트 부분 (웹 전용)
+                            if (coinSymbolEl && coinSymbolEl.textContent === upperSymbol) {
+                                const marketCapCell = row.querySelector('td[data-label="시가총액"]');
+                                if (marketCapCell) {
+                                    const coin = results.find(c => c.symbol === upperSymbol);
+                                    if (coin && coin.circulating_supply) {
+                                        const newMarketCap = priceData.price * coin.circulating_supply;
+                                        
+                                        // 이미 HTML에 존재하는 realtime-marketcap div 찾기
+                                        let realtimeDiv = marketCapCell.querySelector('.realtime-marketcap');
+                                        if (realtimeDiv) {
+                                            // display를 block으로 변경하여 표시
+                                            realtimeDiv.style.display = 'block';
+                                            
+                                            // 거래소 이름은 처음에만 설정하고 변경하지 않음
+                                            const sourceSpan = realtimeDiv.querySelector('span[style*="color: var(--accent-cyan)"]');
+                                            if (sourceSpan && !sourceSpan.hasAttribute('data-exchange-locked')) {
+                                                sourceSpan.textContent = `${priceData.source} 기준`;
+                                                sourceSpan.setAttribute('data-exchange-locked', 'true');
+                                            }
+                                            
+                                            // 값만 업데이트
+                                            const valueSpan = realtimeDiv.querySelector('.realtime-value');
+                                            if (valueSpan) {
+                                                valueSpan.textContent = formatMarketCap(newMarketCap);
+                                                
+                                                // 애니메이션 효과
+                                                if (!isMobile) {
+                                                    valueSpan.style.transition = 'all 0.3s';
+                                                    valueSpan.style.transform = 'scale(1.05)';
+                                                    setTimeout(() => {
+                                                        valueSpan.style.transform = 'scale(1)';
+                                                    }, 300);
+                                                }
+                                            }
+                                        } else {
+                                            // 만약 realtime-marketcap이 없다면 생성 (구버전 호환)
+                                            const existingContent = marketCapCell.querySelector('div');
+                                            if (existingContent) {
+                                                const newRealtimeDiv = document.createElement('div');
+                                                newRealtimeDiv.className = 'realtime-marketcap';
+                                                newRealtimeDiv.style.cssText = 'display: block; padding-top: 6px; border-top: 1px solid rgba(255,255,255,0.1);';
+                                                newRealtimeDiv.innerHTML = `
+                                                    <span style="font-size: 0.7rem; color: var(--accent-cyan); display: block;">
+                                                        ${priceData.source} 기준
+                                                    </span>
+                                                    <span class="realtime-value" style="color: var(--accent-cyan); font-weight: 700; font-size: 1rem;">
+                                                        ${formatMarketCap(newMarketCap)}
+                                                    </span>
+                                                `;
+                                                existingContent.appendChild(newRealtimeDiv);
+                                            }
+                                        }
+                                    }
+                                }
+                            }
                         }
                     });
                 } catch (error) {
                     console.error('가격 업데이트 오류:', symbol, error);
                 }
             }
-            
-            // 배치 실시간 가격 조회 메서드
-            async getBatchRealtimePrices(coins) {
-                console.log('[실시간 가격] 배치 조회 시작, 코인 수:', coins.length);
-                
-                // 실시간 가격 업데이트를 위한 웹소켓 연결
-                if (coins.length > 0) {
-                    this.startWebSocketStreams(coins);
-                }
-                
-                // 즉시 결과 반환 (웹소켓은 백그라운드에서 업데이트)
-                return coins;
-            }
         }
 
-        // RealtimePriceSystem 인스턴스는 1885줄에서 이미 생성됨
-
         // ===== API 호출 함수들 =====
-        // fetchCoinData 함수 정의
+        // 원본 fetchCoinData 함수 저장
+        const originalFetchCoinData = fetchCoinData;
+        
+        // fetchCoinData 함수 재정의
         async function fetchCoinData() {
-            console.log('[fetchCoinData] 함수 시작');
-            console.log('[fetchCoinData] 현재 coins:', coins);
-            console.log('[fetchCoinData] 모바일 여부:', /iPhone|iPad|iPod|Android/i.test(navigator.userAgent));
-            
             // 기존 웹소켓 연결 종료
             if (realtimePriceSystem) {
                 realtimePriceSystem.stopWebSocketStreams();
@@ -3486,12 +3381,7 @@
                     showNotification('잘못된 코인 형식입니다', 'error');
                     return;
                 }
-                // cloudSync가 없는 경우 처리
-                if (typeof cloudSync !== 'undefined' && cloudSync.sanitizeInput) {
-                    coins = [cloudSync.sanitizeInput(newCoin)];
-                } else {
-                    coins = [newCoin];
-                }
+                coins = [cloudSync.sanitizeInput(newCoin)]; // 단일 조회로 변경
                 newCoinInput.value = '';
                 updateCoinList();
             }
@@ -3557,7 +3447,7 @@
                 // 6. 결과 표시
                 updateProgress(100, 'Complete!');
                 setTimeout(() => {
-                    displayResults();
+                    displayResultsWithRealtimePrice();
                     hideProgress();
                     fetchButton.disabled = false;
                     updateLastTime();
@@ -4072,8 +3962,8 @@
             });
         }
         
-        // displayResults 함수 정의
-        function displayResults() {
+        // displayResults 함수를 모바일 친화적으로 수정
+        function displayResultsWithRealtimePrice() {
             const resultsSection = document.getElementById('resultsSection');
             const resultsTable = document.getElementById('resultsTable');
             const resultCount = document.getElementById('resultCount');
@@ -4090,23 +3980,26 @@
             if (downloadButton) downloadButton.style.display = 'inline-flex';
             if (theddariButton) theddariButton.style.display = 'inline-flex';
             
-            // 모바일 여부 체크
+            // 모바일 여부 체크 (User-Agent 또는 화면 크기)
             const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || window.innerWidth <= 768;
             
-            // 실시간 가격 시스템이 있으면 웹소켓 시작
-            if (typeof realtimePriceSystem !== 'undefined' && realtimePriceSystem) {
-                realtimePriceSystem.startWebSocketStreams(results);
+            // 모바일에서는 간단한 알림만
+            if (isMobile) {
+                showNotification('가격 업데이트 중...', 'info');
+            } else {
+                showNotification('실시간 거래소 가격 조회 중...', 'info');
             }
             
-            // 모바일과 데스크톱 분기 처리
-            if (isMobile) {
-                // 모바일 전용 카드 레이아웃 사용
-                console.log('[모바일] 카드 렌더링');
-                const mobileHtml = results.map(coin => renderMobileResults(coin)).join('');
-                resultsTable.innerHTML = mobileHtml;
-            } else {
-                // 데스크톱 전용 기존 HTML 생성
-                resultsTable.innerHTML = results.map(coin => {
+            realtimePriceSystem.getBatchRealtimePrices(results).then(updatedResults => {
+                results = updatedResults;
+                
+                // 모바일과 데스크톱 분기 처리
+                if (isMobile) {
+                    // 모바일 전용 카드 레이아웃 사용
+                    resultsTable.innerHTML = results.map(coin => renderMobileResults(coin)).join('');
+                } else {
+                    // 데스크톱 전용 기존 HTML 생성
+                    resultsTable.innerHTML = results.map(coin => {
                         const rankClass = coin.market_cap_rank <= 10 ? 'top10' : 
                                         coin.market_cap_rank <= 50 ? 'top50' : 
                                         coin.market_cap_rank <= 100 ? 'top100' : '';
@@ -4228,15 +4121,20 @@
                     }
                 }
             }, 100);
+            
+            // 웹소켓 스트림 시작 (실시간 갱신)
+            console.log('[실시간 시작] results 코인 목록:', results.map(c => c.symbol));
+            realtimePriceSystem.startWebSocketStreams(results);
+            
+            showNotification('실시간 가격 스트리밍 시작됨!', 'success');
+            }).catch(error => {
+                console.error('Realtime price error:', error);
+                displayResults(); // 실패시 기존 방식으로 표시
+            });
         }
 
-        // 중복 함수 제거 (displayResults는 위에 이미 정의됨)
-        /*
-        function displayResultsDuplicate() {
-            console.log('[displayResults] 함수 시작');
-            console.log('[displayResults] results 길이:', results.length);
-            console.log('[displayResults] 모바일 여부:', /iPhone|iPad|iPod|Android/i.test(navigator.userAgent));
-            
+        // 기존 displayResults 함수 (실시간 가격 실패시 백업용)
+        function displayResults() {
             const resultsSection = document.getElementById('resultsSection');
             const resultsTable = document.getElementById('resultsTable');
             const resultCount = document.getElementById('resultCount');
@@ -4244,7 +4142,6 @@
             const theddariButton = document.getElementById('theddariButton');
             
             if (!resultsSection || !resultsTable || results.length === 0) {
-                console.error('[displayResults] 오류: resultsSection:', !!resultsSection, 'resultsTable:', !!resultsTable, 'results:', results.length);
                 showNotification('No results to display', 'warning');
                 return;
             }
@@ -4258,13 +4155,9 @@
             const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || window.innerWidth <= 768;
             
             // 모바일과 데스크톱 분기 처리
-            console.log('[displayResults] 모바일 여부 체크:', isMobile);
             if (isMobile) {
                 // 모바일용 카드 레이아웃
-                console.log('[displayResults] 모바일 카드 렌더링', results.length, '개 코인');
-                const mobileHtml = results.map(coin => renderMobileResults(coin)).join('');
-                console.log('[displayResults] 모바일 HTML 생성 완료');
-                resultsTable.innerHTML = mobileHtml;
+                resultsTable.innerHTML = results.map(coin => renderMobileResults(coin)).join('');
             } else {
                 // 데스크톱용 테이블 레이아웃
                 resultsTable.innerHTML = results.map(coin => {
@@ -4374,7 +4267,6 @@
                 }
             }, 100);
         }
-        */
 
         // 모바일용 간소화된 결과 표시 함수
         function renderMobileResults(coin) {
@@ -4767,6 +4659,13 @@
         }
 
         // 주소 축약
+        function truncateAddress(address) {
+            if (!address) return '';
+            if (address.length <= 15) return address;
+            return `${address.slice(0, 6)}...${address.slice(-4)}`;
+        }
+
+
         // 컨트랙트 토글 (웹 버전 - 전역)
         window.toggleContracts = function(coinId, element) {
             console.log('[컨트랙트 토글] coinId:', coinId);
@@ -5083,11 +4982,30 @@
             }
         }
 
-        // (중복된 handleDuplicateSelection 함수는 3730줄에 이미 정의되어 있음)
-        
-        // 이 부분의 코드는 원래 handleDuplicateSelection 함수 내부 코드였으나
-        // 함수 선언이 중복되어 제거함. 실제 함수는 3730줄의 정의를 사용
-        /*
+        // ===== 중복 선택 처리 함수 =====
+        async function handleDuplicateSelection(duplicateChoices, apiKey) {
+            return new Promise(async (resolve) => {
+                const modal = document.getElementById('duplicateModal');
+                const choicesDiv = document.getElementById('duplicateChoices');
+                
+                if (!modal || !choicesDiv) {
+                    console.error('Duplicate modal not found');
+                    resolve([]);
+                    return;
+                }
+                
+                try {
+                    // 변수 선언을 최상단에!
+                    const enrichedChoices = [];
+                    const totalCoins = duplicateChoices.reduce((sum, choice) => sum + choice.matches.length, 0);
+                    let processedCoins = 0;
+                    
+                    // 로딩 표시
+                    choicesDiv.innerHTML = `
+                        <div style="text-align: center; padding: 20px;">
+                            <div style="display: inline-block; width: 40px; height: 40px; border: 3px solid rgba(63, 81, 181, 0.2); border-top-color: var(--navy-500); border-radius: 50%; animation: spin 1s linear infinite;"></div>
+                            <div style="margin-top: 15px; color: var(--gray-300); font-size: 1rem;">
+                                중복된 코인 정보를 가져오는 중...
                             </div>
                         </div>
                     `;
@@ -5249,7 +5167,6 @@
                 }
             });
         }
-        */
 
         // ===== 거래량 포맷 함수 =====
         function formatVolume(volume) {
@@ -7475,9 +7392,6 @@
 
 </body>
 </html>
-
-
-
 
 
 

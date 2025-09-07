@@ -2798,6 +2798,46 @@
                 });
             }
 
+            // 실시간 가격 박스 생성
+            createRealtimeBox(priceData) {
+                const box = document.createElement('div');
+                box.className = 'realtime-price-box';
+                box.style.cssText = `
+                    background: linear-gradient(135deg, rgba(16, 249, 129, 0.1), rgba(16, 249, 129, 0.05));
+                    border: 1px solid #10F981;
+                    border-radius: 6px;
+                    padding: 8px 12px;
+                    margin-top: 8px;
+                    animation: pulse 2s infinite;
+                `;
+                box.innerHTML = `
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <span style="color: #10F981; font-size: 0.75rem;">
+                            ${priceData.source} LIVE
+                        </span>
+                        <span style="color: #fff; font-weight: 600;">
+                            $${priceData.price.toFixed(4)}
+                        </span>
+                    </div>
+                `;
+                return box;
+            }
+
+            // 거래소 표시 초기화
+            resetExchangeDisplay(symbol) {
+                // 이전 거래소 표시 제거
+                const rows = document.querySelectorAll('.data-table tbody tr');
+                rows.forEach(row => {
+                    const symbolElem = row.querySelector('.coin-symbol');
+                    if (symbolElem && symbolElem.textContent.includes(symbol.toUpperCase())) {
+                        const oldBox = row.querySelector('.realtime-price-box');
+                        if (oldBox) {
+                            oldBox.remove();
+                        }
+                    }
+                });
+            }
+
             // 웹소켓 스트림 시작 함수 수정
             startWebSocketStreams(coins) {
                 console.log('[WebSocket] 실시간 가격 스트림 시작, 코인 수:', coins.length);
@@ -7421,9 +7461,6 @@
 
 </body>
 </html>
-
-
-
 
 
 

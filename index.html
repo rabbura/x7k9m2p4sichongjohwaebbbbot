@@ -2765,6 +2765,8 @@
                     `${coin.symbol.toLowerCase()}usdt@ticker`
                 ).join('/');
                 
+                console.log('[바이낸스] 구독 심볼:', symbols); // 디버깅
+                
                 const ws = new WebSocket(`wss://stream.binance.com:9443/ws/${symbols}`);
                 
                 ws.onopen = () => {
@@ -2777,12 +2779,17 @@
                     
                     const symbol = data.s.replace('USDT', '');
                     
+                    console.log(`[바이낸스 수신] ${symbol}: $${data.c}`); // 디버깅
+                    
                     // results에서 해당 심볼이 있는지 확인
                     const matchingCoin = results.find(coin => 
                         coin.symbol.toUpperCase() === symbol.toUpperCase()
                     );
                     
-                    if (!matchingCoin) return; // 매칭되는 코인이 없으면 무시
+                    if (!matchingCoin) {
+                        console.log(`[바이낸스] ${symbol} 코인을 results에서 찾을 수 없음`);
+                        return;
+                    }
                     
                     // 우선순위 체크는 updateRealtimePrice에서 처리
                     
@@ -2942,8 +2949,10 @@
                 
                 console.log(`DEX 폴링 시작: ${this.pollingCoins.length}개 코인`);
                 
-                // 초기 조회
-                this.pollDEXPrices();
+                // 초기 조회 (CEX 연결 후 약간 대기)
+                setTimeout(() => {
+                    this.pollDEXPrices();
+                }, 1000);
                 
                 // 5초마다 업데이트 (변동성 높은 시장은 3초로 조정 가능)
                 this.dexPollingInterval = setInterval(() => {
@@ -2953,11 +2962,21 @@
 
             // DEX 가격 폴링
             async pollDEXPrices() {
+                // CEX 데이터를 받을 시간을 주기 위해 짧은 대기
+                await new Promise(resolve => setTimeout(resolve, 500));
+                
                 for (const coin of this.pollingCoins) {
                     const upperSymbol = coin.symbol.toUpperCase();
                     
-                    // CEX 우선순위 체크는 updateRealtimePrice에서 처리되므로
-                    // 여기서는 모든 코인 폴링
+                    // 이미 CEX에 고정된 코인은 스킵
+                    if (this.lockedExchanges.has(upperSymbol)) {
+                        const locked = this.lockedExchanges.get(upperSymbol);
+                        const lockedPriority = this.exchangePriority[locked] || 999;
+                        if (lockedPriority <= 4) { // CEX 우선순위(1-4)면 스킵
+                            console.log(`[DEX 폴링 스킵] ${upperSymbol}는 이미 ${locked}에 고정`);
+                            continue;
+                        }
+                    }
                     
                     // DEX 가격 조회
                     for (const contract of coin.contracts) {
@@ -4245,6 +4264,7 @@
             }, 100);
             
             // 웹소켓 스트림 시작 (실시간 갱신)
+            console.log('[실시간 시작] results 코인 목록:', results.map(c => c.symbol));
             realtimePriceSystem.startWebSocketStreams(results);
             
             showNotification('실시간 가격 스트리밍 시작됨!', 'success');
@@ -7503,11 +7523,6 @@
 
 </body>
 </html>
-
-
-
-
-
 
 
 

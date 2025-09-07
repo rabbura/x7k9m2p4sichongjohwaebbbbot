@@ -2773,14 +2773,18 @@
                 
                 ws.onmessage = (event) => {
                     const data = JSON.parse(event.data);
+                    if (!data.s) return; // 심볼이 없으면 무시
+                    
                     const symbol = data.s.replace('USDT', '');
                     
-                    // 코인별 거래소 고정 확인
-                    const upperSymbol = symbol.toUpperCase();
-                    if (this.lockedExchanges.has(upperSymbol) && 
-                        this.lockedExchanges.get(upperSymbol) !== '바이낸스') {
-                        return; // 다른 거래소에 이미 고정됨
-                    }
+                    // results에서 해당 심볼이 있는지 확인
+                    const matchingCoin = results.find(coin => 
+                        coin.symbol.toUpperCase() === symbol.toUpperCase()
+                    );
+                    
+                    if (!matchingCoin) return; // 매칭되는 코인이 없으면 무시
+                    
+                    // 우선순위 체크는 updateRealtimePrice에서 처리
                     
                     this.updateRealtimePrice(symbol, {
                         price: parseFloat(data.c),
@@ -2819,12 +2823,14 @@
                     if (data.topic && data.topic.startsWith('tickers.')) {
                         const symbol = data.topic.replace('tickers.', '').replace('USDT', '');
                         
-                        // 코인별 거래소 고정 확인
-                        const upperSymbol = symbol.toUpperCase();
-                        if (this.lockedExchanges.has(upperSymbol) && 
-                            this.lockedExchanges.get(upperSymbol) !== '바이빗') {
-                            return; // 다른 거래소에 이미 고정됨
-                        }
+                        // results에서 해당 심볼이 있는지 확인
+                        const matchingCoin = results.find(coin => 
+                            coin.symbol.toUpperCase() === symbol.toUpperCase()
+                        );
+                        
+                        if (!matchingCoin) return; // 매칭되는 코인이 없으면 무시
+                        
+                        // 우선순위 체크는 updateRealtimePrice에서 처리
                         
                         this.updateRealtimePrice(symbol, {
                             price: parseFloat(data.data.lastPrice),
@@ -2927,9 +2933,8 @@
                     clearInterval(this.dexPollingInterval);
                 }
                 
-                // DEX에서만 거래되는 코인 필터링
+                // 컨트랙트 주소가 있는 모든 코인 폴링 (우선순위는 updateRealtimePrice에서 처리)
                 this.pollingCoins = coins.filter(coin => {
-                    // 컨트랙트 주소가 있고, 대형 CEX에 상장되지 않은 코인
                     return coin.contracts && coin.contracts.length > 0;
                 });
                 
@@ -2951,14 +2956,8 @@
                 for (const coin of this.pollingCoins) {
                     const upperSymbol = coin.symbol.toUpperCase();
                     
-                    // 이미 CEX에 고정된 코인은 스킵
-                    if (this.lockedExchanges.has(upperSymbol)) {
-                        const lockedExchange = this.lockedExchanges.get(upperSymbol);
-                        // CEX에 고정되어 있으면 DEX 폴링 스킵
-                        if (!lockedExchange.includes('SWAP') && !lockedExchange.includes('DEX')) {
-                            continue;
-                        }
-                    }
+                    // CEX 우선순위 체크는 updateRealtimePrice에서 처리되므로
+                    // 여기서는 모든 코인 폴링
                     
                     // DEX 가격 조회
                     for (const contract of coin.contracts) {
@@ -2986,12 +2985,23 @@
                 // 코인별 거래소 고정 로직
                 const upperSymbol = symbol.toUpperCase();
                 
+                // 현재 거래소의 우선순위
+                const currentPriority = this.exchangePriority[priceData.source] || 999;
+                
                 // 이미 고정된 거래소가 있는지 확인
                 if (this.lockedExchanges.has(upperSymbol)) {
                     const lockedExchange = this.lockedExchanges.get(upperSymbol);
-                    // 고정된 거래소가 아닌 다른 거래소 데이터는 무시
-                    if (priceData.source !== lockedExchange) {
-                        return; // 다른 거래소 데이터는 무시
+                    const lockedPriority = this.exchangePriority[lockedExchange] || 999;
+                    
+                    // 더 높은 우선순위 거래소가 오면 교체
+                    if (currentPriority < lockedPriority) {
+                        this.lockedExchanges.set(upperSymbol, priceData.source);
+                        console.log(`[거래소 변경] ${upperSymbol}: ${lockedExchange} -> ${priceData.source}`);
+                        
+                        // 기존 표시된 거래소 이름 모두 초기화
+                        this.resetExchangeDisplay(upperSymbol);
+                    } else if (priceData.source !== lockedExchange) {
+                        return; // 낮은 우선순위 거래소 데이터는 무시
                     }
                 } else {
                     // 처음 들어온 거래소를 고정
@@ -3207,6 +3217,46 @@
                 }
             }
 
+            // 거래소 표시 초기화 (우선순위 변경 시)
+            resetExchangeDisplay(symbol) {
+                // 웹 테이블에서 거래소 이름 초기화 및 업데이트
+                const rows = document.querySelectorAll('.data-table tbody tr');
+                rows.forEach(row => {
+                    const coinSymbolEl = row.querySelector('.coin-symbol');
+                    if (coinSymbolEl && coinSymbolEl.textContent === symbol) {
+                        // 현재가 컬럼의 거래소 표시 초기화
+                        const priceCell = row.querySelector('td[data-label="현재가"]');
+                        if (priceCell) {
+                            const realtimeBox = priceCell.querySelector('.realtime-price-box');
+                            if (realtimeBox) {
+                                const sourceEl = realtimeBox.querySelector('.realtime-price-source');
+                                if (sourceEl && sourceEl.hasAttribute('data-exchange-locked')) {
+                                    sourceEl.removeAttribute('data-exchange-locked');
+                                }
+                            }
+                        }
+                        
+                        // 시가총액 컬럼의 거래소 표시 초기화
+                        const marketCapCell = row.querySelector('td[data-label="시가총액"]');
+                        if (marketCapCell) {
+                            const sourceSpan = marketCapCell.querySelector('span[data-exchange-locked="true"]');
+                            if (sourceSpan) {
+                                sourceSpan.removeAttribute('data-exchange-locked');
+                            }
+                        }
+                    }
+                });
+                
+                // 모바일 카드에서 거래소 이름 초기화
+                const mobileCard = document.querySelector(`.mobile-result-card[data-symbol="${symbol}"]`);
+                if (mobileCard) {
+                    const realtimeElements = mobileCard.querySelectorAll('[data-exchange-locked="true"]');
+                    realtimeElements.forEach(el => {
+                        el.removeAttribute('data-exchange-locked');
+                    });
+                }
+            }
+            
             // 정리 함수 수정
             stopWebSocketStreams() {
                 // 웹소켓 정리
@@ -7453,6 +7503,8 @@
 
 </body>
 </html>
+
+
 
 
 

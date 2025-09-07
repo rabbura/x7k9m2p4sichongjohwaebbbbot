@@ -3001,7 +3001,7 @@
                                             }
                                             
                                             priceEl.style.color = newPrice > oldPrice ? '#10F981' : '#FF6B6B';
-                                            priceEl.textContent = `$${this.formatPrice(newPrice)}`;
+                                            priceEl.textContent = `$${formatPrice(newPrice)}`;
                                         }
                                     }
                                 } else {
@@ -3018,12 +3018,12 @@
                                         if (!liquidityEl) {
                                             const liquidityHtml = `
                                                 <div class="liquidity-info" style="font-size: 0.7rem; color: var(--gray-400); margin-top: 2px;">
-                                                    유동성: $${this.formatVolume(priceData.liquidity)}
+                                                    유동성: $${formatVolume(priceData.liquidity)}
                                                 </div>
                                             `;
                                             realtimeBox.insertAdjacentHTML('beforeend', liquidityHtml);
                                         } else {
-                                            liquidityEl.querySelector('span') && (liquidityEl.querySelector('span').textContent = `유동성: $${this.formatVolume(priceData.liquidity)}`);
+                                            liquidityEl.querySelector('span') && (liquidityEl.querySelector('span').textContent = `유동성: $${formatVolume(priceData.liquidity)}`);
                                         }
                                     }
                                 }
@@ -3041,7 +3041,7 @@
                                         // 이미 표시되어 있으면 값만 업데이트 (거래소 이름 유지)
                                         const valueSpan = realtimeDiv.querySelector('.realtime-value');
                                         if (valueSpan) {
-                                            valueSpan.textContent = this.formatMarketCap(newMarketCap);
+                                            valueSpan.textContent = formatMarketCap(newMarketCap);
                                         }
                                     } else {
                                         // 처음 생성
@@ -3053,7 +3053,7 @@
                                                 ${priceData.source} 기준
                                             </span>
                                             <span class="realtime-value" style="color: var(--accent-cyan); font-weight: 700; font-size: 1rem;">
-                                                ${this.formatMarketCap(newMarketCap)}
+                                                ${formatMarketCap(newMarketCap)}
                                             </span>
                                         `;
                                         
@@ -3084,7 +3084,7 @@
                                            marketCapCell.querySelector('div[style*="font-size: 0.9rem"]');
                         
                         if (marketCapEl) {
-                            marketCapEl.textContent = this.formatMarketCap(newMarketCap);
+                            marketCapEl.textContent = formatMarketCap(newMarketCap);
                             
                             // 변화 애니메이션
                             marketCapEl.style.transition = 'all 0.3s';
@@ -3309,7 +3309,7 @@
                             color: #10F981; 
                             font-size: 1rem;
                         ">
-                            $${this.formatPrice(priceData.price)}
+                            $${formatPrice(priceData.price)}
                         </div>
                     </div>
                 `;
@@ -3957,56 +3957,8 @@
                 
                 // 모바일과 데스크톱 분기 처리
                 if (isMobile) {
-                    // 모바일 전용 간소화된 HTML 생성
-                    resultsTable.innerHTML = results.map(coin => {
-                        const realtimePrice = coin.realtimePrice ? 
-                            `<span style="color: #10F981; font-weight: 700; margin-left: 8px;">
-                                $${formatPrice(coin.realtimePrice.price)}
-                            </span>` : '';
-                        
-                        const realtimeMarketCap = coin.realtimePrice && coin.circulating_supply ? 
-                            formatMarketCap(coin.realtimePrice.price * coin.circulating_supply) : '';
-                        
-                        // formatSupply function for mobile
-                        const formatSupply = (value) => {
-                            if (!value) return 'N/A';
-                            if (value >= 1e12) return (value / 1e12).toFixed(1) + 'T';
-                            if (value >= 1e9) return (value / 1e9).toFixed(1) + 'B';
-                            if (value >= 1e6) return (value / 1e6).toFixed(1) + 'M';
-                            if (value >= 1e3) return (value / 1e3).toFixed(1) + 'K';
-                            return value.toFixed(0);
-                        };
-                        
-                        return `
-                            <tr>
-                                <td data-label="순위">
-                                    <span class="rank-badge">#${coin.market_cap_rank || 'N/A'}</span>
-                                </td>
-                                <td data-label="코인">
-                                    ${coin.name} (${coin.symbol})
-                                </td>
-                                <td data-label="현재가">
-                                    <div style="display: flex; align-items: center;">
-                                        <span>$${formatPrice(coin.current_price)}</span>
-                                        ${realtimePrice}
-                                    </div>
-                                </td>
-                                <td data-label="시총" data-realtime="${realtimeMarketCap}">
-                                    ${formatMarketCap(coin.market_cap)}
-                                </td>
-                                <td data-label="공급량">
-                                    ${formatSupply(coin.circulating_supply)} / ${formatSupply(coin.total_supply || coin.max_supply)}
-                                </td>
-                                <td data-label="컨트랙트">
-                                    ${coin.contracts.length > 0 ? 
-                                        `<span onclick="copyToClipboard('${coin.contracts[0].address}', this)" style="font-family: monospace; font-size: 0.75rem; cursor: pointer;">
-                                            ${truncateAddress(coin.contracts[0].address)}
-                                        </span>` : 'N/A'
-                                    }
-                                </td>
-                            </tr>
-                        `;
-                    }).join('');
+                    // 모바일 전용 카드 레이아웃 사용
+                    resultsTable.innerHTML = results.map(coin => renderMobileResults(coin)).join('');
                 } else {
                     // 데스크톱 전용 기존 HTML 생성
                     resultsTable.innerHTML = results.map(coin => {
@@ -4160,83 +4112,90 @@
             // 모바일 여부 체크
             const isMobile = window.innerWidth <= 768;
             
-            resultsTable.innerHTML = results.map(coin => {
-                const rankClass = coin.market_cap_rank <= 10 ? 'top10' : 
-                                coin.market_cap_rank <= 50 ? 'top50' : 
-                                coin.market_cap_rank <= 100 ? 'top100' : '';
-                
-                const priceChangeClass = coin.price_change_24h > 0 ? 'positive' : 
-                                        coin.price_change_24h < 0 ? 'negative' : 'neutral';
-                
-                const changeArrow = coin.price_change_24h > 0 ? '▲' : 
-                                  coin.price_change_24h < 0 ? '▼' : '－';
-                
-                // 유통량/총공급량 포맷팅 함수
-                const formatSupply = (value) => {
-                    if (!value) return 'N/A';
-                    if (value >= 1e9) return (value / 1e9).toFixed(2) + 'B';
-                    if (value >= 1e6) return (value / 1e6).toFixed(2) + 'M';
-                    if (value >= 1e3) return (value / 1e3).toFixed(2) + 'K';
-                    return value.toFixed(0);
-                };
-                
-                const supplyDisplay = `${formatSupply(coin.circulating_supply)} / ${formatSupply(coin.total_supply || coin.max_supply)}`;
-                
-                return `
-                    <tr>
-                        <td data-label="순위">
-                            <span class="rank-badge ${rankClass}">
-                                #${coin.market_cap_rank || 'N/A'}
-                            </span>
-                        </td>
-                        <td data-label="코인명">
-                            <div class="coin-name">${coin.name}</div>
-                        </td>
-                        <td data-label="심볼">
-                            <span class="coin-symbol">${coin.symbol}</span>
-                        </td>
-                        <td data-label="현재가">
-                            <span class="price-display">
-                                $${formatPrice(coin.current_price)}
-                            </span>
-                        </td>
-                        <td data-label="시가총액">
-                            <span class="market-cap-display">
-                                ${formatMarketCap(coin.market_cap)}
-                            </span>
-                        </td>
-                        <td data-label="FDV">
-                            <span class="market-cap-display">
-                                ${formatMarketCap(coin.fully_diluted_valuation)}
-                            </span>
-                        </td>
-                        <td data-label="유통량/총공급량">
-                            <span style="font-size: 0.9rem; color: var(--gray-300);">
-                                ${supplyDisplay}
-                            </span>
-                        </td>
-                        <td data-label="실시간 시총">
-                            <span class="realtime-cap-display" style="color: var(--accent-cyan); font-weight: 700;">
-                                ${formatMarketCap(coin.realtime_market_cap)}
-                            </span>
-                        </td>
-                        <td data-label="24시간">
-                            ${coin.price_change_24h !== null ? `
-                                <span class="price-change ${priceChangeClass}">
-                                    <span class="change-arrow">${changeArrow}</span>
-                                    ${Math.abs(coin.price_change_24h).toFixed(2)}%
+            // 모바일과 데스크톱 분기 처리
+            if (isMobile) {
+                // 모바일용 카드 레이아웃
+                resultsTable.innerHTML = results.map(coin => renderMobileResults(coin)).join('');
+            } else {
+                // 데스크톱용 테이블 레이아웃
+                resultsTable.innerHTML = results.map(coin => {
+                    const rankClass = coin.market_cap_rank <= 10 ? 'top10' : 
+                                    coin.market_cap_rank <= 50 ? 'top50' : 
+                                    coin.market_cap_rank <= 100 ? 'top100' : '';
+                    
+                    const priceChangeClass = coin.price_change_24h > 0 ? 'positive' : 
+                                            coin.price_change_24h < 0 ? 'negative' : 'neutral';
+                    
+                    const changeArrow = coin.price_change_24h > 0 ? '▲' : 
+                                      coin.price_change_24h < 0 ? '▼' : '－';
+                    
+                    // 유통량/총공급량 포맷팅 함수
+                    const formatSupply = (value) => {
+                        if (!value) return 'N/A';
+                        if (value >= 1e9) return (value / 1e9).toFixed(2) + 'B';
+                        if (value >= 1e6) return (value / 1e6).toFixed(2) + 'M';
+                        if (value >= 1e3) return (value / 1e3).toFixed(2) + 'K';
+                        return value.toFixed(0);
+                    };
+                    
+                    const supplyDisplay = `${formatSupply(coin.circulating_supply)} / ${formatSupply(coin.total_supply || coin.max_supply)}`;
+                    
+                    return `
+                        <tr>
+                            <td data-label="순위">
+                                <span class="rank-badge ${rankClass}">
+                                    #${coin.market_cap_rank || 'N/A'}
                                 </span>
-                            ` : '<span class="price-change neutral">－</span>'}
-                        </td>
-                        <td data-label="컨트랙트">
-                            ${renderContracts(coin)}
-                        </td>
-                        <td data-label="거래소">
-                            ${renderExchanges(coin)}
-                        </td>
-                    </tr>
-                `;
-            }).join('');
+                            </td>
+                            <td data-label="코인명">
+                                <div class="coin-name">${coin.name}</div>
+                            </td>
+                            <td data-label="심볼">
+                                <span class="coin-symbol">${coin.symbol}</span>
+                            </td>
+                            <td data-label="현재가">
+                                <span class="price-display">
+                                    $${formatPrice(coin.current_price)}
+                                </span>
+                            </td>
+                            <td data-label="시가총액">
+                                <span class="market-cap-display">
+                                    ${formatMarketCap(coin.market_cap)}
+                                </span>
+                            </td>
+                            <td data-label="FDV">
+                                <span class="market-cap-display">
+                                    ${formatMarketCap(coin.fully_diluted_valuation)}
+                                </span>
+                            </td>
+                            <td data-label="유통량/총공급량">
+                                <span style="font-size: 0.9rem; color: var(--gray-300);">
+                                    ${supplyDisplay}
+                                </span>
+                            </td>
+                            <td data-label="실시간 시총">
+                                <span class="realtime-cap-display" style="color: var(--accent-cyan); font-weight: 700;">
+                                    ${formatMarketCap(coin.realtime_market_cap)}
+                                </span>
+                            </td>
+                            <td data-label="24시간">
+                                ${coin.price_change_24h !== null ? `
+                                    <span class="price-change ${priceChangeClass}">
+                                        <span class="change-arrow">${changeArrow}</span>
+                                        ${Math.abs(coin.price_change_24h).toFixed(2)}%
+                                    </span>
+                                ` : '<span class="price-change neutral">－</span>'}
+                            </td>
+                            <td data-label="컨트랙트">
+                                ${renderContracts(coin)}
+                            </td>
+                            <td data-label="거래소">
+                                ${renderExchanges(coin)}
+                            </td>
+                        </tr>
+                    `;
+                }).join('');
+            }
             
             // 결과 표시 후 자동 스크롤 (모바일 최적화)
             setTimeout(() => {
@@ -7098,10 +7057,6 @@
 
 </body>
 </html>
-
-
-
-
 
 
 

@@ -2857,7 +2857,7 @@
                 this.connectBinanceWebSocket(coins);
                 this.connectBybitWebSocket(coins);
                 this.connectOKXWebSocket(coins);  // OKX 활성화
-                // this.connectGateWebSocket(coins);  // 필요시 활성화
+                this.connectGateWebSocket(coins);  // Gate.io 활성화
                 
                 // DEX 폴링 시작
                 this.startDEXPolling(coins);
@@ -3067,6 +3067,8 @@
                             this.lockedExchanges.get(symbol) !== 'Gate.io') {
                             return; // 다른 거래소에 이미 고정됨
                         }
+                        
+                        // console.log(`[Gate.io 수신] ${symbol}: $${data.result.last}`); // 디버깅용
                         
                         this.updateRealtimePrice(symbol, {
                             price: parseFloat(data.result.last),
@@ -7519,6 +7521,7 @@
 
 </body>
 </html>
+
 
 
 

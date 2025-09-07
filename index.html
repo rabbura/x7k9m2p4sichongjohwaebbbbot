@@ -4,19 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     
-    <!-- 보안 헤더 -->
-    <meta http-equiv="Content-Security-Policy" content="
-        default-src 'self' https: wss: data:;
-        script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com;
-        style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
-        font-src 'self' https://fonts.gstatic.com;
-        connect-src *;
-        img-src 'self' data: https:;
-        frame-ancestors 'none';
-        form-action 'self';
-        base-uri 'self';
-    ">
-    <meta http-equiv="X-Frame-Options" content="DENY">
+    <!-- 보안 헤더 (CSP는 서버 헤더로 설정하는 것이 권장됨) -->
+    <!-- frame-ancestors와 X-Frame-Options는 HTTP 헤더로만 설정 가능 -->
     <meta http-equiv="X-XSS-Protection" content="1; mode=block">
     <meta http-equiv="X-Content-Type-Options" content="nosniff">
     
@@ -7679,6 +7668,8 @@
 
 </body>
 </html>
+
+
 
 
 

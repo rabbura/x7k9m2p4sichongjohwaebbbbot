@@ -3060,30 +3060,46 @@
                                 if (coin && coin.circulating_supply) {
                                     const newMarketCap = priceData.price * coin.circulating_supply;
                                     
+                                    // 이미 HTML에 존재하는 realtime-marketcap div 찾기
                                     let realtimeDiv = marketCapCell.querySelector('.realtime-marketcap');
                                     if (realtimeDiv) {
-                                        // 이미 표시되어 있으면 값만 업데이트 (거래소 이름 유지)
+                                        // display를 block으로 변경하여 표시
+                                        realtimeDiv.style.display = 'block';
+                                        
+                                        // 거래소 이름 업데이트
+                                        const sourceSpan = realtimeDiv.querySelector('span[style*="color: var(--accent-cyan)"]');
+                                        if (sourceSpan) {
+                                            sourceSpan.textContent = `${priceData.source} 기준`;
+                                        }
+                                        
+                                        // 값 업데이트
                                         const valueSpan = realtimeDiv.querySelector('.realtime-value');
                                         if (valueSpan) {
                                             valueSpan.textContent = formatMarketCap(newMarketCap);
+                                            
+                                            // 애니메이션 효과
+                                            valueSpan.style.transition = 'all 0.3s';
+                                            valueSpan.style.transform = 'scale(1.05)';
+                                            setTimeout(() => {
+                                                valueSpan.style.transform = 'scale(1)';
+                                            }, 300);
                                         }
                                     } else {
-                                        // 처음 생성
-                                        realtimeDiv = document.createElement('div');
-                                        realtimeDiv.className = 'realtime-marketcap';
-                                        realtimeDiv.style.cssText = 'display: block; padding-top: 6px; border-top: 1px solid rgba(255,255,255,0.1);';
-                                        realtimeDiv.innerHTML = `
-                                            <span style="font-size: 0.7rem; color: var(--accent-cyan); display: block;">
-                                                ${priceData.source} 기준
-                                            </span>
-                                            <span class="realtime-value" style="color: var(--accent-cyan); font-weight: 700; font-size: 1rem;">
-                                                ${formatMarketCap(newMarketCap)}
-                                            </span>
-                                        `;
-                                        
+                                        // 만약 realtime-marketcap이 없다면 생성 (구버전 호환)
                                         const existingContent = marketCapCell.querySelector('div');
                                         if (existingContent) {
-                                            existingContent.appendChild(realtimeDiv);
+                                            const newRealtimeDiv = document.createElement('div');
+                                            newRealtimeDiv.className = 'realtime-marketcap';
+                                            newRealtimeDiv.style.cssText = 'display: block; padding-top: 6px; border-top: 1px solid rgba(255,255,255,0.1);';
+                                            newRealtimeDiv.innerHTML = `
+                                                <span style="font-size: 0.7rem; color: var(--accent-cyan); display: block;">
+                                                    ${priceData.source} 기준
+                                                </span>
+                                                <span class="realtime-value" style="color: var(--accent-cyan); font-weight: 700; font-size: 1rem;">
+                                                    ${formatMarketCap(newMarketCap)}
+                                                </span>
+                                            `;
+                                            existingContent.appendChild(newRealtimeDiv);
                                         }
                                     }
                                 }
@@ -3946,10 +3962,6 @@
         
         // displayResults 함수를 모바일 친화적으로 수정
         function displayResultsWithRealtimePrice() {
-            // 모바일에서 확인하기 위한 디버그 코드
-            console.log('Device width:', window.innerWidth);
-            console.log('Is mobile:', window.innerWidth <= 768);
-            
             const resultsSection = document.getElementById('resultsSection');
             const resultsTable = document.getElementById('resultsTable');
             const resultCount = document.getElementById('resultCount');
@@ -3968,8 +3980,6 @@
             
             // 모바일 여부 체크 (User-Agent 또는 화면 크기)
             const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || window.innerWidth <= 768;
-            
-            console.log('[displayRealtimeResults] 모바일 감지:', isMobile);
             
             // 모바일에서는 간단한 알림만
             if (isMobile) {
@@ -4046,13 +4056,16 @@
                                             <span style="font-size: 0.7rem; color: var(--gray-400); display: block;">CoinGecko 기준</span>
                                             <span class="market-cap-display">${formatMarketCap(coin.market_cap)}</span>
                                         </div>
-                                        <!-- 실시간 시총 공간 미리 생성 (숨김 상태) -->
-                                        <div class="realtime-marketcap" style="display: none; padding-top: 6px; border-top: 1px solid rgba(255,255,255,0.1);">
+                                        <!-- 실시간 시총 공간 미리 생성 (처음부터 표시) -->
+                                        <div class="realtime-marketcap" style="display: ${coin.realtimePrice ? 'block' : 'none'}; padding-top: 6px; border-top: 1px solid rgba(255,255,255,0.1);">
                                             <span style="font-size: 0.7rem; color: var(--accent-cyan); display: block;">
-                                                실시간 기준
+                                                ${coin.realtimePrice ? coin.realtimePrice.source : '실시간'} 기준
                                             </span>
                                             <span class="realtime-value" style="color: var(--accent-cyan); font-weight: 700; font-size: 1rem;">
-                                                -
+                                                ${coin.realtimePrice && coin.circulating_supply ? 
+                                                    formatMarketCap(coin.realtimePrice.price * coin.circulating_supply) : 
+                                                    '-'
+                                                }
                                             </span>
                                         </div>
                                     </div>
@@ -4138,16 +4151,8 @@
             // 모바일 여부 체크 (User-Agent 또는 화면 크기)
             const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || window.innerWidth <= 768;
             
-            // 디버깅용 로그
-            console.log('=== 모바일 감지 디버그 ===');
-            console.log('User Agent:', navigator.userAgent);
-            console.log('화면 너비:', window.innerWidth);
-            console.log('모바일 감지됨:', isMobile);
-            console.log('=========================');
-            
             // 모바일과 데스크톱 분기 처리
             if (isMobile) {
-                console.log('>>> 모바일 카드 레이아웃 적용 중...');
                 // 모바일용 카드 레이아웃
                 resultsTable.innerHTML = results.map(coin => renderMobileResults(coin)).join('');
             } else {
@@ -4267,6 +4272,67 @@
             const changeArrow = coin.price_change_24h > 0 ? '▲' : 
                               coin.price_change_24h < 0 ? '▼' : '－';
             
+            // 컨트랙트 렌더링 (2개 표시 + 나머지 접기)
+            let contractsHtml = '';
+            if (coin.contracts && coin.contracts.length > 0) {
+                const visibleContracts = coin.contracts.slice(0, 2);
+                const hiddenContracts = coin.contracts.slice(2);
+                
+                contractsHtml = `
+                    <div class="contracts-section-mobile">
+                        <div class="section-header">
+                            <span class="info-label">컨트랙트</span>
+                        </div>
+                        <div class="contracts-list">
+                            ${visibleContracts.map(contract => `
+                                <div class="contract-item-mobile" onclick="copyToClipboard('${contract.address}', this)">
+                                    <span class="contract-platform-badge">${formatPlatformName(contract.platform)}</span>
+                                    <span class="contract-address">${truncateAddress(contract.address)}</span>
+                                    <span class="copy-icon">📋</span>
+                                </div>
+                            `).join('')}
+                            ${hiddenContracts.length > 0 ? `
+                                <div class="contracts-hidden" id="contracts-${coin.symbol}" style="display: none;">
+                                    ${hiddenContracts.map(contract => `
+                                        <div class="contract-item-mobile" onclick="copyToClipboard('${contract.address}', this)">
+                                            <span class="contract-platform-badge">${formatPlatformName(contract.platform)}</span>
+                                            <span class="contract-address">${truncateAddress(contract.address)}</span>
+                                            <span class="copy-icon">📋</span>
+                                        </div>
+                                    `).join('')}
+                                </div>
+                                <button class="show-more-btn" onclick="toggleContracts('${coin.symbol}', this)">
+                                    더보기 (${hiddenContracts.length}개 더)
+                                </button>
+                            ` : ''}
+                        </div>
+                    </div>
+                `;
+            }
+            
+            // 거래소 렌더링 (접기/펼치기)
+            let exchangesHtml = '';
+            if (coin.exchanges && coin.exchanges.length > 0) {
+                exchangesHtml = `
+                    <div class="exchanges-section-mobile">
+                        <div class="section-header collapsible" onclick="toggleExchanges('${coin.symbol}', this)">
+                            <span class="info-label">거래소</span>
+                            <span class="toggle-icon">▼</span>
+                        </div>
+                        <div class="exchanges-content" id="exchanges-${coin.symbol}" style="display: none;">
+                            <div class="exchanges-grid">
+                                ${coin.exchanges.map((exchange, index) => `
+                                    <div class="exchange-item-mobile">
+                                        <span class="exchange-rank">${index + 1}</span>
+                                        <span class="exchange-name">${exchange.name}</span>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+            
             return `
                 <div class="mobile-result-card">
                     <div class="mobile-card-header">
@@ -4305,24 +4371,47 @@
                             </div>
                             
                             <div class="info-item">
+                                <span class="info-label">실시간 시총</span>
+                                <span class="info-value" style="color: var(--accent-cyan);">
+                                    ${coin.realtimePrice && coin.circulating_supply ? 
+                                        formatMarketCap(coin.realtimePrice.price * coin.circulating_supply) : 
+                                        'N/A'
+                                    }
+                                </span>
+                            </div>
+                            
+                            <div class="info-item">
                                 <span class="info-label">유통량/총공급량</span>
                                 <span class="info-value">${formatSupply(coin.circulating_supply)}/${formatSupply(coin.total_supply || coin.max_supply)}</span>
                             </div>
-                            
-                            ${coin.contracts && coin.contracts.length > 0 ? `
-                                <div class="info-item">
-                                    <span class="info-label">컨트랙트</span>
-                                    <span class="info-value contract-mobile" onclick="copyToClipboard('${coin.contracts[0].address}', this)">
-                                        <span class="contract-platform-mobile">${formatPlatformName(coin.contracts[0].platform)}</span>
-                                        ${truncateAddress(coin.contracts[0].address)}
-                                        <span class="copy-icon">📋</span>
-                                    </span>
-                                </div>
-                            ` : ''}
                         </div>
+                        
+                        ${contractsHtml}
+                        ${exchangesHtml}
                     </div>
                 </div>
             `;
+        }
+        
+        // 컨트랙트 토글 함수
+        function toggleContracts(symbol, button) {
+            const hiddenContracts = document.getElementById(`contracts-${symbol}`);
+            if (hiddenContracts) {
+                const isHidden = hiddenContracts.style.display === 'none';
+                hiddenContracts.style.display = isHidden ? 'block' : 'none';
+                button.textContent = isHidden ? '접기' : button.textContent;
+            }
+        }
+        
+        // 거래소 토글 함수
+        function toggleExchanges(symbol, header) {
+            const content = document.getElementById(`exchanges-${symbol}`);
+            const icon = header.querySelector('.toggle-icon');
+            if (content) {
+                const isHidden = content.style.display === 'none';
+                content.style.display = isHidden ? 'block' : 'none';
+                icon.textContent = isHidden ? '▲' : '▼';
+            }
         }
 
         // 유틸리티 함수들
@@ -6358,6 +6447,137 @@
                 font-size: 0.8rem;
             }
             
+            /* 모바일 컨트랙트 섹션 스타일 */
+            .contracts-section-mobile {
+                margin-top: 15px;
+                padding-top: 15px;
+                border-top: 1px solid rgba(255, 255, 255, 0.1);
+            }
+            
+            .contracts-section-mobile .section-header {
+                margin-bottom: 10px;
+            }
+            
+            .contract-item-mobile {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                padding: 8px;
+                margin-bottom: 6px;
+                background: rgba(255, 255, 255, 0.05);
+                border: 1px solid rgba(255, 255, 255, 0.1);
+                border-radius: 6px;
+                cursor: pointer;
+                transition: all 0.2s;
+            }
+            
+            .contract-item-mobile:hover {
+                background: rgba(255, 255, 255, 0.08);
+                transform: translateX(2px);
+            }
+            
+            .contract-platform-badge {
+                font-size: 0.75rem;
+                color: var(--accent-cyan);
+                background: rgba(0, 255, 255, 0.15);
+                padding: 2px 6px;
+                border-radius: 4px;
+                text-transform: uppercase;
+                font-weight: 600;
+            }
+            
+            .contract-address {
+                flex: 1;
+                font-family: monospace;
+                font-size: 0.85rem;
+                color: var(--gray-200);
+            }
+            
+            .contracts-hidden {
+                margin-top: 8px;
+            }
+            
+            .show-more-btn {
+                width: 100%;
+                padding: 8px;
+                margin-top: 8px;
+                background: rgba(59, 130, 246, 0.1);
+                border: 1px solid rgba(59, 130, 246, 0.3);
+                border-radius: 6px;
+                color: var(--accent-cyan);
+                font-size: 0.85rem;
+                cursor: pointer;
+                transition: all 0.2s;
+            }
+            
+            .show-more-btn:hover {
+                background: rgba(59, 130, 246, 0.2);
+            }
+            
+            /* 모바일 거래소 섹션 스타일 */
+            .exchanges-section-mobile {
+                margin-top: 15px;
+                padding-top: 15px;
+                border-top: 1px solid rgba(255, 255, 255, 0.1);
+            }
+            
+            .exchanges-section-mobile .section-header {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                padding: 8px;
+                background: rgba(255, 255, 255, 0.03);
+                border-radius: 6px;
+                cursor: pointer;
+                transition: all 0.2s;
+            }
+            
+            .exchanges-section-mobile .section-header:hover {
+                background: rgba(255, 255, 255, 0.05);
+            }
+            
+            .toggle-icon {
+                color: var(--gray-400);
+                transition: transform 0.2s;
+            }
+            
+            .exchanges-content {
+                margin-top: 10px;
+                padding: 10px;
+                background: rgba(255, 255, 255, 0.02);
+                border-radius: 6px;
+            }
+            
+            .exchanges-grid {
+                display: grid;
+                grid-template-columns: repeat(2, 1fr);
+                gap: 8px;
+            }
+            
+            .exchange-item-mobile {
+                display: flex;
+                align-items: center;
+                gap: 6px;
+                padding: 6px 8px;
+                background: rgba(59, 130, 246, 0.05);
+                border: 1px solid rgba(59, 130, 246, 0.2);
+                border-radius: 4px;
+                font-size: 0.85rem;
+            }
+            
+            .exchange-rank {
+                color: var(--navy-400);
+                font-weight: 700;
+                font-size: 0.75rem;
+            }
+            
+            .exchange-name {
+                color: var(--gray-100);
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+            }
+            
             .realtime-badge {
                 background: rgba(59, 130, 246, 0.15);
                 color: #60A5FA;
@@ -7131,7 +7351,6 @@
 
 </body>
 </html>
-
 
 
 

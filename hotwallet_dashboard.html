@@ -922,7 +922,6 @@
                     <span>마지막 갱신:</span>
                     <span id="lastUpdate">-</span>
                 </div>
-                <button class="settings-btn" onclick="openSettings()">⚙️ 설정</button>
             </div>
         </header>
 
@@ -1159,22 +1158,6 @@
                         <div>3. 조회 시작 버튼 클릭</div>
                     </div>
                 </div>
-                <div style="margin-top: 16px; text-align: left; max-width: 520px; margin-left: auto; margin-right: auto; background: rgba(77, 166, 255, 0.1); border: 1px solid rgba(77, 166, 255, 0.3); padding: 16px 20px; border-radius: 8px;">
-                    <div style="font-weight: 600; margin-bottom: 10px; color: var(--accent-blue);">🔑 API 키 설정 (선택사항)</div>
-                    <div style="font-size: 0.85rem; line-height: 1.7; color: var(--text-secondary);">
-                        <div>• <b>출금 내역 조회</b>를 위해 Etherscan API 키가 필요합니다</div>
-                        <div>• 없어도 <b>잔고/가격/시총</b>은 정상 조회됩니다</div>
-                        <div>• API 키는 <b>브라우저에만 저장</b>되며 외부로 전송되지 않습니다</div>
-                    </div>
-                    <div style="margin-top: 12px; font-size: 0.85rem;">
-                        <span style="color: var(--text-muted);">무료 발급:</span>
-                        <a href="https://etherscan.io/myapikey" target="_blank" style="color: var(--accent-blue); text-decoration: none; margin-left: 6px;">etherscan.io/myapikey ↗</a>
-                    </div>
-                    <div style="margin-top: 8px; font-size: 0.85rem;">
-                        <span style="color: var(--text-muted);">등록 방법:</span>
-                        <span style="color: var(--text-secondary); margin-left: 6px;">우측 상단 ⚙️ 설정 클릭 → API 키 입력 → 저장</span>
-                    </div>
-                </div>
                 <div style="margin-top: 20px; font-size: 0.8rem; color: var(--text-muted);">
                     지원 체인: Ethereum · BSC · Arbitrum · Optimism · Base · Avalanche · Polygon
                 </div>
@@ -1200,45 +1183,6 @@
         </div>
     </div>
 
-    <!-- Settings Modal -->
-    <div class="modal-overlay" id="settingsModal">
-        <div class="modal">
-            <div class="modal-header">
-                <h3>⚙️ API 키 설정</h3>
-                <button class="modal-close" onclick="closeSettings()">&times;</button>
-            </div>
-            <div class="modal-body">
-                <p style="color: var(--text-secondary); margin-bottom: 16px; font-size: 0.9rem;">
-                    출금 내역 조회를 위해 Explorer API 키가 필요합니다.<br>
-                    키는 브라우저에 저장되며 서버로 전송되지 않습니다.
-                </p>
-                <div class="api-key-input">
-                    <label>Etherscan API Key (ETH, ARB, OP, BASE, POL)</label>
-                    <input type="text" id="etherscanKey" placeholder="Etherscan API Key">
-                </div>
-                <div class="api-key-input">
-                    <label>BscScan API Key (BSC)</label>
-                    <input type="text" id="bscscanKey" placeholder="BscScan API Key">
-                </div>
-                <div class="api-key-input">
-                    <label>Snowtrace API Key (AVAX)</label>
-                    <input type="text" id="snowtraceKey" placeholder="Snowtrace API Key">
-                </div>
-                <div style="display: flex; gap: 12px; margin-top: 20px;">
-                    <button class="btn btn-primary" onclick="saveSettings()" style="flex: 1;">저장</button>
-                    <button class="btn btn-secondary" onclick="closeSettings()">취소</button>
-                </div>
-                <div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border-color);">
-                    <p style="font-size: 0.85rem; color: var(--text-muted);">
-                        API 키 발급:
-                        <a href="https://etherscan.io/apis" target="_blank" style="color: var(--accent-blue);">Etherscan</a> |
-                        <a href="https://bscscan.com/apis" target="_blank" style="color: var(--accent-blue);">BscScan</a> |
-                        <a href="https://snowtrace.io/apis" target="_blank" style="color: var(--accent-blue);">Snowtrace</a>
-                    </p>
-                </div>
-            </div>
-        </div>
-    </div>
 
     <!-- Loading Overlay - Streamlit 스타일 -->
     <div class="loading-overlay" id="loadingOverlay">
@@ -1590,40 +1534,6 @@
             }
         }
 
-        // ===== API 키 관리 =====
-        function getApiKey(chain) {
-            if (chain === 'BSC') {
-                return localStorage.getItem('bscscanKey') || '';
-            } else if (chain === 'AVAX') {
-                return localStorage.getItem('snowtraceKey') || '';
-            } else {
-                return localStorage.getItem('etherscanKey') || '';
-            }
-        }
-
-        function openSettings() {
-            document.getElementById('settingsModal').classList.add('active');
-            document.getElementById('etherscanKey').value = localStorage.getItem('etherscanKey') || '';
-            document.getElementById('bscscanKey').value = localStorage.getItem('bscscanKey') || '';
-            document.getElementById('snowtraceKey').value = localStorage.getItem('snowtraceKey') || '';
-        }
-
-        function loadSettings() {
-            // API 키는 getApiKey()에서 localStorage에서 직접 읽으므로
-            // 여기서는 별도 작업 불필요
-        }
-
-        function closeSettings() {
-            document.getElementById('settingsModal').classList.remove('active');
-        }
-
-        function saveSettings() {
-            localStorage.setItem('etherscanKey', document.getElementById('etherscanKey').value);
-            localStorage.setItem('bscscanKey', document.getElementById('bscscanKey').value);
-            localStorage.setItem('snowtraceKey', document.getElementById('snowtraceKey').value);
-            closeSettings();
-            alert('설정이 저장되었습니다.');
-        }
 
         // ===== 시장 데이터 조회 =====
         async function getMarketData(chain, tokenContract) {
@@ -1882,55 +1792,6 @@
             }
         }
 
-        // 기존 Etherscan API 방식 (백업용)
-        async function getLastWithdrawalEtherscan(chain, wallet, tokenContract) {
-            const chainConfig = CONFIG.chains[chain];
-            const apiKey = getApiKey(chain);
-
-            // Etherscan V2 API
-            const apiUrl = 'https://api.etherscan.io/v2/api';
-            const params = new URLSearchParams({
-                chainid: chainConfig.chainId,
-                module: 'account',
-                action: 'tokentx',
-                address: wallet,
-                contractaddress: tokenContract,
-                page: 1,
-                offset: CONFIG.withdrawalOffset,
-                sort: 'desc'
-            });
-            if (apiKey) params.append('apikey', apiKey);
-
-            try {
-                const res = await fetch(`${apiUrl}?${params}`);
-                const data = await res.json();
-
-                if (data.status === '1' && data.result && data.result.length > 0) {
-                    for (const tx of data.result) {
-                        if (tx.from.toLowerCase() === wallet.toLowerCase()) {
-                            const amount = parseFloat(tx.value) / Math.pow(10, parseInt(tx.tokenDecimal || tokenDecimals));
-                            return {
-                                amount,
-                                to: tx.to,
-                                timestamp: parseInt(tx.timeStamp),
-                                hash: tx.hash
-                            };
-                        }
-                    }
-                } else if (data.status === '0') {
-                    if (data.message === 'No transactions found') {
-                        return null;
-                    } else if (data.message === 'NOTOK') {
-                        return { error: 'NOTOK' };
-                    }
-                }
-
-                return null;
-            } catch (e) {
-                console.error('Withdrawal API error:', e);
-                return { error: e.message };
-            }
-        }
 
         // ===== 모든 지갑 데이터 조회 =====
         async function fetchAllWalletData(skipWithdrawal = false, skipSort = false) {
@@ -2022,7 +1883,6 @@
 
         async function fetchWithdrawalsInBackground(walletEntries, total, incrementalUpdate = false) {
             isWithdrawalFetching = true;  // 조회 시작
-            const apiKey = getApiKey(currentChain);
 
             const modeText = incrementalUpdate ? '증분 갱신' : '전체 조회';
 
@@ -3325,25 +3185,16 @@
 
         // ===== 초기화 =====
         document.addEventListener('DOMContentLoaded', () => {
-            // 저장된 API 키 로드
-            loadSettings();
-
             // Enter 키로 검색
             document.getElementById('tokenAddress').addEventListener('keypress', (e) => {
                 if (e.key === 'Enter') {
                     startSearch();
                 }
             });
-
-            // 모달 외부 클릭시 닫기
-            document.getElementById('settingsModal').addEventListener('click', (e) => {
-                if (e.target.id === 'settingsModal') {
-                    closeSettings();
-                }
-            });
         });
     </script>
 </body>
 </html>
+
 
 

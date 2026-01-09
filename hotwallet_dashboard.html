@@ -1151,15 +1151,28 @@
                 <p style="margin-top: 12px; color: var(--text-secondary);">
                     거래소 핫월렛의 토큰 보유량과 출금 현황을 실시간으로 모니터링합니다.
                 </p>
-                <div style="margin-top: 24px; text-align: left; max-width: 480px; margin-left: auto; margin-right: auto; background: var(--bg-tertiary); padding: 20px; border-radius: 8px;">
+                <div style="margin-top: 24px; text-align: left; max-width: 520px; margin-left: auto; margin-right: auto; background: var(--bg-tertiary); padding: 20px; border-radius: 8px;">
                     <div style="font-weight: 600; margin-bottom: 12px; color: var(--text-primary);">📌 사용 방법</div>
                     <div style="font-size: 0.9rem; line-height: 1.8; color: var(--text-secondary);">
                         <div>1. 체인 선택 (ETH, BSC, ARB 등)</div>
                         <div>2. 토큰 이름(PEPE) 또는 컨트랙트 주소(0x...) 입력</div>
                         <div>3. 조회 시작 버튼 클릭</div>
                     </div>
-                    <div style="margin-top: 16px; font-size: 0.85rem; color: var(--text-muted);">
-                        💡 출금 내역 조회를 위해 <span style="color: var(--accent-blue);">설정</span>에서 Etherscan API 키를 등록하세요.
+                </div>
+                <div style="margin-top: 16px; text-align: left; max-width: 520px; margin-left: auto; margin-right: auto; background: rgba(77, 166, 255, 0.1); border: 1px solid rgba(77, 166, 255, 0.3); padding: 16px 20px; border-radius: 8px;">
+                    <div style="font-weight: 600; margin-bottom: 10px; color: var(--accent-blue);">🔑 API 키 설정 (선택사항)</div>
+                    <div style="font-size: 0.85rem; line-height: 1.7; color: var(--text-secondary);">
+                        <div>• <b>출금 내역 조회</b>를 위해 Etherscan API 키가 필요합니다</div>
+                        <div>• 없어도 <b>잔고/가격/시총</b>은 정상 조회됩니다</div>
+                        <div>• API 키는 <b>브라우저에만 저장</b>되며 외부로 전송되지 않습니다</div>
+                    </div>
+                    <div style="margin-top: 12px; font-size: 0.85rem;">
+                        <span style="color: var(--text-muted);">무료 발급:</span>
+                        <a href="https://etherscan.io/myapikey" target="_blank" style="color: var(--accent-blue); text-decoration: none; margin-left: 6px;">etherscan.io/myapikey ↗</a>
+                    </div>
+                    <div style="margin-top: 8px; font-size: 0.85rem;">
+                        <span style="color: var(--text-muted);">등록 방법:</span>
+                        <span style="color: var(--text-secondary); margin-left: 6px;">우측 상단 ⚙️ 설정 클릭 → API 키 입력 → 저장</span>
                     </div>
                 </div>
                 <div style="margin-top: 20px; font-size: 0.8rem; color: var(--text-muted);">
@@ -2201,6 +2214,10 @@
 
                     // 출금 시간 업데이트 + 강조 표시
                     const timeCell = row.querySelector('.withdrawal-time');
+                    const nameCell = row.querySelector('.wallet-name');
+                    const isDex = wallet.type === 'DEX';
+                    const timeClass = !isDex ? getTimeHighlightClass(wallet.withdrawal?.timestamp) : '';
+
                     if (timeCell) {
                         const withdrawalTime = wallet.withdrawal && wallet.withdrawal.timestamp && !wallet.withdrawal.error
                             ? formatTimeAgo(wallet.withdrawal.timestamp)
@@ -2208,11 +2225,13 @@
                         timeCell.textContent = withdrawalTime;
                         // 강조 클래스 업데이트
                         timeCell.classList.remove('time-recent', 'time-very-recent');
-                        const isDex = wallet.type === 'DEX';
-                        if (!isDex) {
-                            const timeClass = getTimeHighlightClass(wallet.withdrawal?.timestamp);
-                            if (timeClass) timeCell.classList.add(timeClass);
-                        }
+                        if (timeClass) timeCell.classList.add(timeClass);
+                    }
+
+                    // 지갑 이름에도 동일한 강조 표시
+                    if (nameCell) {
+                        nameCell.classList.remove('time-recent', 'time-very-recent');
+                        if (timeClass) nameCell.classList.add(timeClass);
                     }
                 });
             } else {
@@ -2253,7 +2272,7 @@
 
                     return `
                         <tr class="${wallet.isMain ? 'highlight' : ''}" data-address="${wallet.address}">
-                            <td class="wallet-name">
+                            <td class="wallet-name ${timeHighlightClass}">
                                 ${wallet.name.replace('(거의메인)', '').replace('(콜드추정)', '')}
                                 ${wallet.isMain ? '<span class="badge">메인추정</span>' : ''}
                             </td>

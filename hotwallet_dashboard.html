@@ -1745,8 +1745,8 @@
                 // 현재 블록 번호
                 const currentBlock = await provider.getBlockNumber();
 
-                // 최근 5000 블록에서 검색 (약 1일치)
-                const fromBlock = Math.max(0, currentBlock - 5000);
+                // 최근 50000 블록에서 검색 (ETH 약 1주일, BSC 약 2일)
+                const fromBlock = Math.max(0, currentBlock - 50000);
 
                 // 지갑 주소를 32바이트로 패딩 (topic1 = from 주소)
                 const paddedWallet = '0x' + wallet.slice(2).toLowerCase().padStart(64, '0');
@@ -1824,7 +1824,7 @@
                     balance,
                     usdValue,
                     withdrawal: withdrawalCache.get(address) || null,  // 캐시에서 가져옴
-                    isMain: name.includes('(거의메인)'),
+                    isMain: name.includes('(거의메인)') || name.includes('(메인추정)'),
                     type: 'CEX'
                 });
             });
@@ -2216,7 +2216,7 @@
                     return `
                         <tr class="${wallet.isMain ? 'highlight' : ''}" data-address="${wallet.address}">
                             <td class="wallet-name ${timeHighlightClass}">
-                                ${wallet.name.replace('(거의메인)', '').replace('(콜드추정)', '')}
+                                ${wallet.name.replace('(거의메인)', '').replace('(메인추정)', '').replace('(콜드추정)', '')}
                                 ${wallet.isMain ? '<span class="badge">메인추정</span>' : ''}
                             </td>
                             <td class="wallet-address">${shortenAddress(wallet.address)}</td>
@@ -3195,6 +3195,5 @@
     </script>
 </body>
 </html>
-
 
 

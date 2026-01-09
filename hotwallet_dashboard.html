@@ -651,6 +651,17 @@
             color: var(--accent-green) !important;
         }
 
+        /* 클릭하여 탐색기 열기 */
+        .clickable-link {
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .clickable-link:hover {
+            color: var(--accent-blue);
+            text-decoration: underline;
+        }
+
         /* 토큰 티커 복사 영역 */
         .token-ticker-display {
             display: none;
@@ -684,6 +695,12 @@
 
         .ticker-value.copied {
             color: var(--accent-green);
+        }
+
+        .copy-hint {
+            font-size: 0.65rem;
+            color: var(--text-muted);
+            opacity: 0.7;
         }
 
         .wallet-type {
@@ -1301,6 +1318,7 @@
                             <span id="tickerSymbol" class="ticker-value" onclick="copyToClipboard(this.textContent, this)" title="클릭하여 티커 복사">-</span>
                             <span class="ticker-label">|</span>
                             <span id="tickerContract" class="ticker-value" onclick="copyToClipboard(currentToken, this)" title="클릭하여 컨트랙트 복사" style="font-size: 0.75rem;">-</span>
+                            <span class="copy-hint">(클릭시 복사)</span>
                         </div>
                         <!-- 실시간 가격 미니 표시 -->
                         <div id="miniPriceDisplay" style="display: none; align-items: center; gap: 8px; background: var(--bg-tertiary); padding: 6px 12px; border-radius: 8px;">
@@ -2476,7 +2494,7 @@
                                 ${wallet.name.replace('(거의메인)', '').replace('(메인추정)', '').replace('(콜드추정)', '')}
                                 ${wallet.isMain ? '<span class="badge">메인추정</span>' : ''}
                             </td>
-                            <td class="wallet-address clickable-copy" onclick="copyToClipboard('${wallet.address}', this)" title="클릭하여 주소 복사">
+                            <td class="wallet-address clickable-link" onclick="window.open('${explorerUrl}', '_blank')" title="클릭하여 탐색기 열기">
                                 ${shortenAddress(wallet.address)}
                             </td>
                             <td class="balance-cell">${formatBalance(wallet.balance)}</td>
@@ -3464,7 +3482,6 @@
     </script>
 </body>
 </html>
-
 
 
 

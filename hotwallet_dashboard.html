@@ -1718,6 +1718,37 @@
             return { price: 0, marketCap: 0, fdv: 0, volume24h: 0, priceChange24h: 0, circulatingSupply: 0, symbol: tokenSymbol || 'UNKNOWN' };
         }
 
+        // ===== RPC Provider 가져오기 =====
+        const providerCache = new Map();
+
+        async function getProvider(chain) {
+            // 캐시된 provider 반환
+            if (providerCache.has(chain)) {
+                return providerCache.get(chain);
+            }
+
+            const chainConfig = CONFIG.chains[chain];
+            if (!chainConfig || !chainConfig.rpcUrls) {
+                return null;
+            }
+
+            // RPC URL 순회하며 작동하는 것 찾기
+            for (const rpcUrl of chainConfig.rpcUrls) {
+                try {
+                    const provider = new ethers.providers.JsonRpcProvider(rpcUrl);
+                    // 연결 테스트
+                    await provider.getBlockNumber();
+                    // 성공시 캐시하고 반환
+                    providerCache.set(chain, provider);
+                    return provider;
+                } catch (e) {
+                    continue;
+                }
+            }
+
+            return null;
+        }
+
         // ===== 토큰 정보 조회 (ethers.js) =====
         async function getTokenInfo(chain, tokenContract) {
             const chainConfig = CONFIG.chains[chain];
@@ -1768,60 +1799,113 @@
         }
 
         // ===== 출금 내역 조회 =====
+        // Transfer 이벤트 시그니처 (ERC20)
+        const TRANSFER_TOPIC = '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef';
+
+        // 블록 타임스탬프 캐시
+        const blockTimestampCache = new Map();
+
+        async function getBlockTimestamp(provider, blockNumber) {
+            if (blockTimestampCache.has(blockNumber)) {
+                return blockTimestampCache.get(blockNumber);
+            }
+            try {
+                const block = await provider.getBlock(blockNumber);
+                if (block) {
+                    blockTimestampCache.set(blockNumber, block.timestamp);
+                    return block.timestamp;
+                }
+            } catch (e) {
+                console.warn('블록 타임스탬프 조회 실패:', e);
+            }
+            return Math.floor(Date.now() / 1000);
+        }
+
         async function getLastWithdrawal(chain, wallet, tokenContract) {
+            const chainConfig = CONFIG.chains[chain];
+
+            try {
+                // RPC Provider 가져오기
+                const provider = await getProvider(chain);
+                if (!provider) {
+                    console.warn(`[출금조회] ${chain} Provider 없음`);
+                    return { error: 'NO_PROVIDER' };
+                }
+
+                // 현재 블록 번호
+                const currentBlock = await provider.getBlockNumber();
+
+                // 최근 5000 블록에서 검색 (약 1일치)
+                const fromBlock = Math.max(0, currentBlock - 5000);
+
+                // 지갑 주소를 32바이트로 패딩 (topic1 = from 주소)
+                const paddedWallet = '0x' + wallet.slice(2).toLowerCase().padStart(64, '0');
+
+                // Transfer 이벤트 로그 조회 (from = wallet인 출금만)
+                const logs = await provider.getLogs({
+                    address: tokenContract,
+                    topics: [
+                        TRANSFER_TOPIC,      // topic0: Transfer 이벤트
+                        paddedWallet,        // topic1: from (출금 주소)
+                        null                 // topic2: to (모든 수신자)
+                    ],
+                    fromBlock: fromBlock,
+                    toBlock: 'latest'
+                });
+
+                if (logs.length === 0) {
+                    return null;  // 출금 내역 없음
+                }
+
+                // 가장 최근 로그 (마지막 요소)
+                const latestLog = logs[logs.length - 1];
+
+                // 금액 파싱 (data 필드에서)
+                const amount = parseFloat(ethers.BigNumber.from(latestLog.data).toString()) / Math.pow(10, tokenDecimals);
+
+                // to 주소 추출 (topic2에서)
+                const toAddress = '0x' + latestLog.topics[2].slice(26);
+
+                // 블록 타임스탬프 조회
+                const timestamp = await getBlockTimestamp(provider, latestLog.blockNumber);
+
+                return {
+                    amount,
+                    to: toAddress,
+                    timestamp: timestamp,
+                    hash: latestLog.transactionHash
+                };
+
+            } catch (e) {
+                console.warn(`[출금조회 실패] ${wallet.slice(0,10)}... 에러: ${e.message}`);
+                return { error: e.message };
+            }
+        }
+
+        // 기존 Etherscan API 방식 (백업용)
+        async function getLastWithdrawalEtherscan(chain, wallet, tokenContract) {
             const chainConfig = CONFIG.chains[chain];
             const apiKey = getApiKey(chain);
 
-            let apiUrl, params;
-
-            if (chain === 'BSC') {
-                apiUrl = chainConfig.explorerApi;
-                params = new URLSearchParams({
-                    module: 'account',
-                    action: 'tokentx',
-                    address: wallet,
-                    contractaddress: tokenContract,
-                    page: 1,
-                    offset: CONFIG.withdrawalOffset,
-                    sort: 'desc'
-                });
-                if (apiKey) params.append('apikey', apiKey);
-            } else if (chain === 'AVAX') {
-                apiUrl = chainConfig.explorerApi;
-                params = new URLSearchParams({
-                    module: 'account',
-                    action: 'tokentx',
-                    address: wallet,
-                    contractaddress: tokenContract,
-                    page: 1,
-                    offset: CONFIG.withdrawalOffset,
-                    sort: 'desc'
-                });
-                if (apiKey) params.append('apikey', apiKey);
-            } else {
-                // Etherscan V2 API
-                apiUrl = 'https://api.etherscan.io/v2/api';
-                params = new URLSearchParams({
-                    chainid: chainConfig.chainId,
-                    module: 'account',
-                    action: 'tokentx',
-                    address: wallet,
-                    contractaddress: tokenContract,
-                    page: 1,
-                    offset: CONFIG.withdrawalOffset,
-                    sort: 'desc'
-                });
-                if (apiKey) params.append('apikey', apiKey);
-            }
+            // Etherscan V2 API
+            const apiUrl = 'https://api.etherscan.io/v2/api';
+            const params = new URLSearchParams({
+                chainid: chainConfig.chainId,
+                module: 'account',
+                action: 'tokentx',
+                address: wallet,
+                contractaddress: tokenContract,
+                page: 1,
+                offset: CONFIG.withdrawalOffset,
+                sort: 'desc'
+            });
+            if (apiKey) params.append('apikey', apiKey);
 
             try {
                 const res = await fetch(`${apiUrl}?${params}`);
                 const data = await res.json();
 
-                // 디버깅: API 응답 로그
-
                 if (data.status === '1' && data.result && data.result.length > 0) {
-                    // Find outgoing transaction (from == wallet)
                     for (const tx of data.result) {
                         if (tx.from.toLowerCase() === wallet.toLowerCase()) {
                             const amount = parseFloat(tx.value) / Math.pow(10, parseInt(tx.tokenDecimal || tokenDecimals));
@@ -1833,17 +1917,11 @@
                             };
                         }
                     }
-                    // 출금 없음 (입금만 있음)
                 } else if (data.status === '0') {
-                    // "No transactions found"는 정상 (출금 내역 없음)
                     if (data.message === 'No transactions found') {
-                        return null;  // 정상 - 출금 내역 없음
+                        return null;
                     } else if (data.message === 'NOTOK') {
-                        console.warn(`[출금조회 실패] ${wallet.slice(0,10)}... Rate limit - 재시도 필요`);
-                        return { error: 'NOTOK' };  // Rate limit - 재시도 대상
-                    } else {
-                        console.warn(`[출금조회 실패] ${wallet.slice(0,10)}... 메시지: ${data.message}`);
-                        return { error: data.message };
+                        return { error: 'NOTOK' };
                     }
                 }
 
@@ -1948,9 +2026,9 @@
 
             const modeText = incrementalUpdate ? '증분 갱신' : '전체 조회';
 
-            // V2 API는 초당 3회 제한 - 안전하게 400ms 간격 (초당 2.5회)
-            const batchSize = 1;
-            const delay = 400;
+            // RPC 방식은 rate limit이 느슨함 - 5개씩 병렬 처리
+            const batchSize = 5;
+            const delay = 200;
 
             // 증분 갱신 모드에서 이전에 실패한 주소 우선 처리
             let priorityEntries = [];
@@ -3173,8 +3251,9 @@
             showLoading('토큰 정보 조회 중...');
             updateProgress(0, '', true);  // 새 조회 시작 시 리셋
 
-            // 새 검색 시 출금 내역 캐시 초기화
+            // 새 검색 시 캐시 및 데이터 초기화
             withdrawalCache.clear();
+            walletData = [];  // DEX 데이터 포함 전체 초기화
 
             try {
                 // 1. 토큰 정보 조회
@@ -3266,4 +3345,5 @@
     </script>
 </body>
 </html>
+
 

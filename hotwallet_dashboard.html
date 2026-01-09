@@ -1608,6 +1608,11 @@
             document.getElementById('snowtraceKey').value = localStorage.getItem('snowtraceKey') || '';
         }
 
+        function loadSettings() {
+            // API 키는 getApiKey()에서 localStorage에서 직접 읽으므로
+            // 여기서는 별도 작업 불필요
+        }
+
         function closeSettings() {
             document.getElementById('settingsModal').classList.remove('active');
         }
@@ -1943,9 +1948,9 @@
 
             const modeText = incrementalUpdate ? '증분 갱신' : '전체 조회';
 
-            // API 키 있어도 순차 처리 (Rate limit 방지)
+            // V2 API는 초당 3회 제한 - 안전하게 400ms 간격 (초당 2.5회)
             const batchSize = 1;
-            const delay = apiKey ? 1000 : 2000;  // 1초 간격 (초당 1회)
+            const delay = 400;
 
             // 증분 갱신 모드에서 이전에 실패한 주소 우선 처리
             let priorityEntries = [];
@@ -3261,3 +3266,4 @@
     </script>
 </body>
 </html>
+

@@ -1747,8 +1747,9 @@
                 // 현재 블록 번호
                 const currentBlock = await provider.getBlockNumber();
 
-                // 최근 50000 블록에서 검색 (ETH 약 1주일, BSC 약 2일)
-                const fromBlock = Math.max(0, currentBlock - 50000);
+                // 최근 9500 블록에서 검색 (무료 RPC 제한: 10000 블록)
+                // ETH 약 32시간, BSC 약 8시간
+                const fromBlock = Math.max(0, currentBlock - 9500);
 
                 // 지갑 주소를 32바이트로 패딩 (topic1 = from 주소)
                 const paddedWallet = '0x' + wallet.slice(2).toLowerCase().padStart(64, '0');
@@ -3209,5 +3210,6 @@
     </script>
 </body>
 </html>
+
 
 

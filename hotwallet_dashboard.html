@@ -1943,9 +1943,9 @@
 
             const modeText = incrementalUpdate ? '증분 갱신' : '전체 조회';
 
-            // API 키 있으면 3개씩 병렬, 없으면 순차
-            const batchSize = apiKey ? 3 : 1;
-            const delay = apiKey ? 350 : 1500;  // 딜레이 늘림
+            // API 키 있으면 2개씩 병렬 (무료 API는 초당 5회 제한), 없으면 순차
+            const batchSize = apiKey ? 2 : 1;
+            const delay = apiKey ? 500 : 1500;  // 500ms = 초당 4회 (여유 있게)
 
             // 증분 갱신 모드에서 이전에 실패한 주소 우선 처리
             let priorityEntries = [];

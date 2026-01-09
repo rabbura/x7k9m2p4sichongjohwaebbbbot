@@ -3222,6 +3222,9 @@
 
         // ===== 초기화 =====
         document.addEventListener('DOMContentLoaded', () => {
+            // 저장된 API 키 로드
+            loadSettings();
+
             // Enter 키로 검색
             document.getElementById('tokenAddress').addEventListener('keypress', (e) => {
                 if (e.key === 'Enter') {

@@ -636,6 +636,21 @@
             color: var(--accent-green);
         }
 
+        /* 클릭하여 복사 가능한 셀 */
+        .clickable-copy {
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .clickable-copy:hover {
+            color: var(--accent-blue);
+            text-decoration: underline;
+        }
+
+        .clickable-copy.copied {
+            color: var(--accent-green) !important;
+        }
+
         /* 토큰 티커 복사 영역 */
         .token-ticker-display {
             display: none;
@@ -660,10 +675,15 @@
             color: var(--accent-blue);
             font-weight: 600;
             cursor: pointer;
+            transition: all 0.2s;
         }
 
         .ticker-value:hover {
             text-decoration: underline;
+        }
+
+        .ticker-value.copied {
+            color: var(--accent-green);
         }
 
         .wallet-type {
@@ -1278,10 +1298,9 @@
                         <!-- 토큰 티커/컨트랙트 복사 -->
                         <div id="tokenTickerDisplay" class="token-ticker-display">
                             <span class="ticker-label">토큰:</span>
-                            <span id="tickerSymbol" class="ticker-value" onclick="copyToClipboard(this.textContent, this)" title="티커 복사">-</span>
+                            <span id="tickerSymbol" class="ticker-value" onclick="copyToClipboard(this.textContent, this)" title="클릭하여 티커 복사">-</span>
                             <span class="ticker-label">|</span>
-                            <span id="tickerContract" class="ticker-value" onclick="copyToClipboard(currentToken, this)" title="컨트랙트 복사" style="font-size: 0.75rem;">-</span>
-                            <button class="copy-btn" onclick="copyToClipboard(currentToken, this)" title="컨트랙트 주소 복사">📋</button>
+                            <span id="tickerContract" class="ticker-value" onclick="copyToClipboard(currentToken, this)" title="클릭하여 컨트랙트 복사" style="font-size: 0.75rem;">-</span>
                         </div>
                         <!-- 실시간 가격 미니 표시 -->
                         <div id="miniPriceDisplay" style="display: none; align-items: center; gap: 8px; background: var(--bg-tertiary); padding: 6px 12px; border-radius: 8px;">
@@ -1711,23 +1730,10 @@
 
                 // 복사 성공 피드백
                 if (element) {
-                    const originalText = element.textContent;
-                    const originalClass = element.className;
-
-                    if (element.classList.contains('copy-btn')) {
-                        element.textContent = '✓';
-                        element.classList.add('copied');
-                    } else {
-                        element.style.color = 'var(--accent-green)';
-                    }
+                    element.classList.add('copied');
 
                     setTimeout(() => {
-                        if (element.classList.contains('copy-btn')) {
-                            element.textContent = '📋';
-                            element.classList.remove('copied');
-                        } else {
-                            element.style.color = '';
-                        }
+                        element.classList.remove('copied');
                     }, 1000);
                 }
 
@@ -2470,16 +2476,14 @@
                                 ${wallet.name.replace('(거의메인)', '').replace('(메인추정)', '').replace('(콜드추정)', '')}
                                 ${wallet.isMain ? '<span class="badge">메인추정</span>' : ''}
                             </td>
-                            <td class="wallet-address">
+                            <td class="wallet-address clickable-copy" onclick="copyToClipboard('${wallet.address}', this)" title="클릭하여 주소 복사">
                                 ${shortenAddress(wallet.address)}
-                                <button class="copy-btn" onclick="copyToClipboard('${wallet.address}', this)" title="주소 복사">📋</button>
                             </td>
                             <td class="balance-cell">${formatBalance(wallet.balance)}</td>
                             <td class="usd-value ${usdHighlightClass}">${formatUsdTable(wallet.usdValue)}</td>
                             <td class="withdrawal-amount">${withdrawalUsd}</td>
-                            <td class="withdrawal-target">
+                            <td class="withdrawal-target ${withdrawalToFull ? 'clickable-copy' : ''}" ${withdrawalToFull ? `onclick="copyToClipboard('${withdrawalToFull}', this)" title="클릭하여 출금대상 주소 복사"` : ''}>
                                 ${withdrawalTo}
-                                ${withdrawalToFull ? `<button class="copy-btn" onclick="copyToClipboard('${withdrawalToFull}', this)" title="출금대상 주소 복사">📋</button>` : ''}
                             </td>
                             <td class="withdrawal-time ${timeHighlightClass}">${withdrawalTime}</td>
                             <td>

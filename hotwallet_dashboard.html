@@ -2500,7 +2500,7 @@
                             <td class="balance-cell">${formatBalance(wallet.balance)}</td>
                             <td class="usd-value ${usdHighlightClass}">${formatUsdTable(wallet.usdValue)}</td>
                             <td class="withdrawal-amount">${withdrawalUsd}</td>
-                            <td class="withdrawal-target ${withdrawalToFull ? 'clickable-copy' : ''}" ${withdrawalToFull ? `onclick="copyToClipboard('${withdrawalToFull}', this)" title="클릭하여 출금대상 주소 복사"` : ''}>
+                            <td class="withdrawal-target ${withdrawalToFull ? 'clickable-link' : ''}" ${withdrawalToFull ? `onclick="window.open('${chainConfig.explorer}/token/${currentToken}?a=${withdrawalToFull}', '_blank')" title="클릭하여 출금대상 탐색기 열기"` : ''}>
                                 ${withdrawalTo}
                             </td>
                             <td class="withdrawal-time ${timeHighlightClass}">${withdrawalTime}</td>

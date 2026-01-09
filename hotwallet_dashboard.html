@@ -614,6 +614,58 @@
             text-decoration: underline;
         }
 
+        /* 복사 버튼 스타일 */
+        .copy-btn {
+            background: transparent;
+            border: none;
+            color: var(--text-muted);
+            cursor: pointer;
+            padding: 2px 4px;
+            font-size: 0.75rem;
+            border-radius: 4px;
+            transition: all 0.2s;
+            margin-left: 4px;
+        }
+
+        .copy-btn:hover {
+            background: var(--bg-tertiary);
+            color: var(--accent-blue);
+        }
+
+        .copy-btn.copied {
+            color: var(--accent-green);
+        }
+
+        /* 토큰 티커 복사 영역 */
+        .token-ticker-display {
+            display: none;
+            align-items: center;
+            gap: 8px;
+            background: var(--bg-tertiary);
+            padding: 6px 12px;
+            border-radius: 8px;
+            font-family: 'Roboto Mono', monospace;
+        }
+
+        .token-ticker-display.show {
+            display: inline-flex;
+        }
+
+        .ticker-label {
+            color: var(--text-muted);
+            font-size: 0.75rem;
+        }
+
+        .ticker-value {
+            color: var(--accent-blue);
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .ticker-value:hover {
+            text-decoration: underline;
+        }
+
         .wallet-type {
             font-weight: 600;
             font-size: 0.8rem;
@@ -904,6 +956,136 @@
         .auto-refresh-toggle.active::after {
             left: 22px;
         }
+
+        /* 모바일 반응형 */
+        @media (max-width: 1200px) {
+            .table-container {
+                overflow-x: auto;
+            }
+
+            table {
+                min-width: 900px;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 10px;
+            }
+
+            .header {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
+            .header-title h1 {
+                font-size: 1.2rem;
+            }
+
+            .card {
+                padding: 12px;
+            }
+
+            .card-header {
+                flex-direction: column;
+                align-items: flex-start !important;
+            }
+
+            .card-title {
+                flex-wrap: wrap;
+                gap: 4px;
+            }
+
+            .card-title span:last-child {
+                display: none; /* 긴 설명 숨김 */
+            }
+
+            .stats-grid {
+                grid-template-columns: repeat(2, 1fr);
+                gap: 8px;
+            }
+
+            .stat-box {
+                padding: 12px;
+            }
+
+            .stat-value {
+                font-size: 1rem;
+            }
+
+            .market-data-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+            .balance-summary {
+                grid-template-columns: 1fr;
+            }
+
+            .search-form {
+                flex-direction: column;
+            }
+
+            .chain-select, .token-input {
+                width: 100%;
+            }
+
+            .search-btn {
+                width: 100%;
+            }
+
+            .sort-options {
+                flex-wrap: wrap;
+                justify-content: flex-start;
+            }
+
+            /* 테이블 모바일 최적화 */
+            table {
+                font-size: 0.75rem;
+                min-width: 700px;
+            }
+
+            th, td {
+                padding: 6px 4px;
+            }
+
+            .wallet-address {
+                max-width: 80px;
+            }
+
+            .copy-btn {
+                font-size: 0.65rem;
+                padding: 1px 2px;
+            }
+
+            /* 미니 가격 표시 */
+            #miniPriceDisplay {
+                width: 100%;
+                justify-content: center;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .header-title h1 {
+                font-size: 1rem;
+            }
+
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .market-data-grid {
+                grid-template-columns: 1fr;
+            }
+
+            table {
+                font-size: 0.7rem;
+                min-width: 600px;
+            }
+
+            .stat-value {
+                font-size: 0.9rem;
+            }
+        }
     </style>
 </head>
 <body>
@@ -1092,7 +1274,15 @@
                         <span style="font-size: 0.85rem; color: var(--text-muted);" id="walletCount">(0개 지갑)</span>
                         <span style="font-size: 0.75rem; color: var(--text-muted); margin-left: 12px;">ℹ️ 최근출금: 각 지갑별 최근 입출금 내역 30건 조회 후 업데이트 (30건 내 출금 없으면 미표시)</span>
                     </div>
-                    <div style="display: flex; align-items: center; gap: 16px;">
+                    <div style="display: flex; align-items: center; gap: 16px; flex-wrap: wrap;">
+                        <!-- 토큰 티커/컨트랙트 복사 -->
+                        <div id="tokenTickerDisplay" class="token-ticker-display">
+                            <span class="ticker-label">토큰:</span>
+                            <span id="tickerSymbol" class="ticker-value" onclick="copyToClipboard(this.textContent, this)" title="티커 복사">-</span>
+                            <span class="ticker-label">|</span>
+                            <span id="tickerContract" class="ticker-value" onclick="copyToClipboard(currentToken, this)" title="컨트랙트 복사" style="font-size: 0.75rem;">-</span>
+                            <button class="copy-btn" onclick="copyToClipboard(currentToken, this)" title="컨트랙트 주소 복사">📋</button>
+                        </div>
                         <!-- 실시간 가격 미니 표시 -->
                         <div id="miniPriceDisplay" style="display: none; align-items: center; gap: 8px; background: var(--bg-tertiary); padding: 6px 12px; border-radius: 8px;">
                             <span id="miniTokenSymbol" style="font-weight: 600; color: var(--accent-blue);"></span>
@@ -1510,6 +1700,48 @@
         function shortenAddress(addr) {
             if (!addr) return '-';
             return `${addr.slice(0, 10)}...${addr.slice(-6)}`;
+        }
+
+        // 클립보드 복사 함수
+        async function copyToClipboard(text, element) {
+            if (!text || text === '-') return;
+
+            try {
+                await navigator.clipboard.writeText(text);
+
+                // 복사 성공 피드백
+                if (element) {
+                    const originalText = element.textContent;
+                    const originalClass = element.className;
+
+                    if (element.classList.contains('copy-btn')) {
+                        element.textContent = '✓';
+                        element.classList.add('copied');
+                    } else {
+                        element.style.color = 'var(--accent-green)';
+                    }
+
+                    setTimeout(() => {
+                        if (element.classList.contains('copy-btn')) {
+                            element.textContent = '📋';
+                            element.classList.remove('copied');
+                        } else {
+                            element.style.color = '';
+                        }
+                    }, 1000);
+                }
+
+                console.log('복사됨:', text);
+            } catch (err) {
+                console.error('복사 실패:', err);
+                // 폴백: 구형 방식
+                const textarea = document.createElement('textarea');
+                textarea.value = text;
+                document.body.appendChild(textarea);
+                textarea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textarea);
+            }
         }
 
         function showLoading(text = '로딩 중...') {
@@ -2227,6 +2459,10 @@
                     const typeClass = isDex ? 'dex' : 'cex';
                     const typeText = isDex ? 'DEX' : 'CEX';
 
+                    // 출금 대상 전체 주소 (복사용)
+                    const withdrawalToFull = wallet.withdrawal && wallet.withdrawal.to && !wallet.withdrawal.error
+                        ? wallet.withdrawal.to : '';
+
                     return `
                         <tr class="${wallet.isMain ? 'highlight' : ''}" data-address="${wallet.address}">
                             <td class="withdrawal-time-left ${timeHighlightClass}">${withdrawalTime}</td>
@@ -2234,11 +2470,17 @@
                                 ${wallet.name.replace('(거의메인)', '').replace('(메인추정)', '').replace('(콜드추정)', '')}
                                 ${wallet.isMain ? '<span class="badge">메인추정</span>' : ''}
                             </td>
-                            <td class="wallet-address">${shortenAddress(wallet.address)}</td>
+                            <td class="wallet-address">
+                                ${shortenAddress(wallet.address)}
+                                <button class="copy-btn" onclick="copyToClipboard('${wallet.address}', this)" title="주소 복사">📋</button>
+                            </td>
                             <td class="balance-cell">${formatBalance(wallet.balance)}</td>
                             <td class="usd-value ${usdHighlightClass}">${formatUsdTable(wallet.usdValue)}</td>
                             <td class="withdrawal-amount">${withdrawalUsd}</td>
-                            <td class="withdrawal-target">${withdrawalTo}</td>
+                            <td class="withdrawal-target">
+                                ${withdrawalTo}
+                                ${withdrawalToFull ? `<button class="copy-btn" onclick="copyToClipboard('${withdrawalToFull}', this)" title="출금대상 주소 복사">📋</button>` : ''}
+                            </td>
                             <td class="withdrawal-time ${timeHighlightClass}">${withdrawalTime}</td>
                             <td>
                                 <a href="${explorerUrl}" target="_blank" class="explorer-link" title="탐색기에서 보기">🔍 확인</a>
@@ -2538,6 +2780,14 @@
             document.getElementById('tokenNameDisplay').textContent = displayName;
             document.getElementById('tokenSymbolDisplay').textContent = displaySymbol;
             document.getElementById('tokenContractCopy').textContent = shortenAddress(contract);
+
+            // 테이블 헤더의 티커/컨트랙트 복사 영역 업데이트
+            const tickerDisplay = document.getElementById('tokenTickerDisplay');
+            if (tickerDisplay) {
+                tickerDisplay.classList.add('show');
+                document.getElementById('tickerSymbol').textContent = displaySymbol;
+                document.getElementById('tickerContract').textContent = shortenAddress(contract);
+            }
         }
 
         // ===== 정렬 =====
@@ -3210,6 +3460,7 @@
     </script>
 </body>
 </html>
+
 
 
 

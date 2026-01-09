@@ -597,7 +597,8 @@
             font-weight: 500;
         }
 
-        .withdrawal-time {
+        .withdrawal-time,
+        .withdrawal-time-left {
             color: var(--text-muted);
             font-size: 0.8rem;
         }
@@ -1109,6 +1110,7 @@
                     <table>
                         <thead>
                             <tr>
+                                <th onclick="sortTable('withdrawalTime')">출금시간 <span class="sort-icon">↕</span></th>
                                 <th onclick="sortTable('name')">지갑이름 <span class="sort-icon">↕</span></th>
                                 <th>주소</th>
                                 <th onclick="sortTable('balance')">잔고 <span class="sort-icon">↕</span></th>
@@ -2176,6 +2178,17 @@
                         nameCell.classList.remove('time-recent', 'time-very-recent');
                         if (timeClass) nameCell.classList.add(timeClass);
                     }
+
+                    // 왼쪽 출금시간 셀 업데이트
+                    const timeLeftCell = row.querySelector('.withdrawal-time-left');
+                    if (timeLeftCell) {
+                        const withdrawalTime = wallet.withdrawal && wallet.withdrawal.timestamp && !wallet.withdrawal.error
+                            ? formatTimeAgo(wallet.withdrawal.timestamp)
+                            : '-';
+                        timeLeftCell.textContent = withdrawalTime;
+                        timeLeftCell.classList.remove('time-recent', 'time-very-recent');
+                        if (timeClass) timeLeftCell.classList.add(timeClass);
+                    }
                 });
             } else {
                 // 새로 그리기 (지갑 수가 다르거나 강제 새로고침)
@@ -2215,6 +2228,7 @@
 
                     return `
                         <tr class="${wallet.isMain ? 'highlight' : ''}" data-address="${wallet.address}">
+                            <td class="withdrawal-time-left ${timeHighlightClass}">${withdrawalTime}</td>
                             <td class="wallet-name ${timeHighlightClass}">
                                 ${wallet.name.replace('(거의메인)', '').replace('(메인추정)', '').replace('(콜드추정)', '')}
                                 ${wallet.isMain ? '<span class="badge">메인추정</span>' : ''}

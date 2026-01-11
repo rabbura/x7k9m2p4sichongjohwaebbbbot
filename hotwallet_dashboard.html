@@ -2244,13 +2244,10 @@
             return `$${formatNumber(num)}`;
         }
 
-        // 잔고용 (쉼표 포함, 소수점 2자리)
+        // 잔고용 (쉼표 포함, 정수)
         function formatBalance(num) {
-            if (num === null || num === undefined || isNaN(num)) return '0.00';
-            return num.toLocaleString('en-US', {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2
-            });
+            if (num === null || num === undefined || isNaN(num)) return '0';
+            return Math.round(num).toLocaleString('en-US');
         }
 
         // 달러 환산용 (쉼표 포함, 정수) - 소수점 없이 표시
@@ -4068,6 +4065,5 @@
     </script>
 </body>
 </html>
-
 
 

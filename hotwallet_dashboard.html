@@ -2224,6 +2224,7 @@
         let refreshTimer = null;
         let websockets = new Map();
         let circulatingSupply = 0;
+        let totalSupply = 0;  // FDV 계산용 총 공급량
         let isWithdrawalFetching = false;  // 출금 내역 조회 중 플래그
         let withdrawalCache = new Map();   // 출금 내역 캐시 (address -> withdrawal)
         let failedAddresses = new Set();  // NOTOK으로 실패한 주소 (다음 갱신 때 우선 재시도)
@@ -2371,6 +2372,7 @@
                                 volume24h: coin.total_volume || 0,
                                 priceChange24h: coin.price_change_percentage_24h || 0,
                                 circulatingSupply: coin.circulating_supply || 0,
+                                totalSupply: coin.total_supply || 0,
                                 symbol: coin.symbol?.toUpperCase() || tokenSymbol || 'UNKNOWN'
                             };
                         }
@@ -2401,6 +2403,7 @@
                         volume24h: marketData.total_volume?.usd || 0,
                         priceChange24h: marketData.price_change_percentage_24h || 0,
                         circulatingSupply: marketData.circulating_supply || 0,
+                        totalSupply: marketData.total_supply || 0,
                         symbol: data.symbol?.toUpperCase() || 'UNKNOWN'
                     };
                 }
@@ -2431,6 +2434,7 @@
                         volume24h: tokenData.usd_24h_vol || 0,
                         priceChange24h: tokenData.usd_24h_change || 0,
                         circulatingSupply: 0,
+                        totalSupply: 0,
                         symbol: tokenSymbol || 'TOKEN'
                     };
                 }
@@ -2439,7 +2443,7 @@
             }
 
             // 모든 API 실패 시
-            return { price: 0, marketCap: 0, fdv: 0, volume24h: 0, priceChange24h: 0, circulatingSupply: 0, symbol: tokenSymbol || 'UNKNOWN' };
+            return { price: 0, marketCap: 0, fdv: 0, volume24h: 0, priceChange24h: 0, circulatingSupply: 0, totalSupply: 0, symbol: tokenSymbol || 'UNKNOWN' };
         }
 
         // ===== RPC Provider 가져오기 =====
@@ -2895,6 +2899,7 @@
 
             currentPrice = marketData.price;
             circulatingSupply = marketData.circulatingSupply;
+            totalSupply = marketData.totalSupply || 0;
 
             // 미니 가격 표시 업데이트 (초기: CoinGecko)
             updateMiniPrice(marketData.symbol || tokenSymbol, priceText, change, 'CoinGecko');
@@ -3097,13 +3102,14 @@
             updateStats(totalBalance, totalUsd);
 
             // 스크롤 위치 복원 (새로고침 후에도 스크롤 위치 유지)
-            requestAnimationFrame(() => {
+            // setTimeout 사용으로 DOM 렌더링 완료 후 복원 보장
+            setTimeout(() => {
                 if (tableContainer) {
                     tableContainer.scrollTop = savedScrollTop;
                     tableContainer.scrollLeft = savedScrollLeft;
                 }
                 window.scrollTo(0, savedPageScrollY);
-            });
+            }, 10);
         }
 
         // DEX 데이터 저장
@@ -3732,6 +3738,11 @@
                     document.getElementById('marketCap').textContent = formatUsd(currentPrice * circulatingSupply);
                 }
 
+                // 실시간 FDV 계산
+                if (totalSupply > 0) {
+                    document.getElementById('fdv').textContent = formatUsd(currentPrice * totalSupply);
+                }
+
                 // 거래소 소스 표시
                 document.getElementById('priceSource').innerHTML = `
                     <span class="status-dot"></span>
@@ -4065,5 +4076,4 @@
     </script>
 </body>
 </html>
-
 

@@ -12,6 +12,7 @@
 
     <!-- 외부 라이브러리 -->
     <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
 
     <style>
@@ -1123,6 +1124,213 @@
                 font-size: 0.9rem;
             }
         }
+
+        /* 닉네임 모달 스타일 */
+        .nickname-modal {
+            max-width: 600px;
+        }
+
+        .nickname-section {
+            margin-bottom: 20px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .nickname-section:last-child {
+            border-bottom: none;
+            margin-bottom: 0;
+        }
+
+        .nickname-section-title {
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .nickname-input-row {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 8px;
+        }
+
+        .nickname-input-row input {
+            flex: 1;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 10px 12px;
+            color: var(--text-primary);
+            font-size: 0.85rem;
+        }
+
+        .nickname-input-row input::placeholder {
+            color: var(--text-muted);
+        }
+
+        .nickname-input-row input:focus {
+            outline: none;
+            border-color: var(--accent-blue);
+        }
+
+        .nickname-textarea {
+            width: 100%;
+            min-height: 100px;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 10px 12px;
+            color: var(--text-primary);
+            font-size: 0.85rem;
+            font-family: 'Roboto Mono', monospace;
+            resize: vertical;
+        }
+
+        .nickname-textarea::placeholder {
+            color: var(--text-muted);
+        }
+
+        .nickname-textarea:focus {
+            outline: none;
+            border-color: var(--accent-blue);
+        }
+
+        .nickname-hint {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            margin-top: 6px;
+        }
+
+        .nickname-list {
+            max-height: 200px;
+            overflow-y: auto;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+        }
+
+        .nickname-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px 12px;
+            border-bottom: 1px solid var(--border-color);
+            font-size: 0.85rem;
+        }
+
+        .nickname-item:last-child {
+            border-bottom: none;
+        }
+
+        .nickname-item-address {
+            font-family: 'Roboto Mono', monospace;
+            color: var(--text-secondary);
+            font-size: 0.8rem;
+        }
+
+        .nickname-item-name {
+            color: var(--accent-blue);
+            font-weight: 500;
+            margin-left: 12px;
+        }
+
+        .nickname-item-delete {
+            background: none;
+            border: none;
+            color: var(--accent-red);
+            cursor: pointer;
+            font-size: 1rem;
+            padding: 4px 8px;
+            opacity: 0.7;
+            transition: opacity 0.2s;
+        }
+
+        .nickname-item-delete:hover {
+            opacity: 1;
+        }
+
+        .nickname-empty {
+            padding: 20px;
+            text-align: center;
+            color: var(--text-muted);
+            font-size: 0.85rem;
+        }
+
+        .nickname-btn-row {
+            display: flex;
+            gap: 8px;
+            margin-top: 10px;
+        }
+
+        .nickname-btn {
+            flex: 1;
+            padding: 10px 16px;
+            border-radius: 6px;
+            font-size: 0.85rem;
+            font-weight: 500;
+            cursor: pointer;
+            border: 1px solid var(--border-color);
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+        }
+
+        .nickname-btn:hover {
+            border-color: var(--accent-blue);
+        }
+
+        .nickname-btn-primary {
+            background: var(--accent-blue);
+            border-color: var(--accent-blue);
+            color: white;
+        }
+
+        .nickname-btn-primary:hover {
+            background: #3d8fe6;
+        }
+
+        .nickname-count {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            font-weight: normal;
+        }
+
+        .settings-btn {
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 8px 12px;
+            color: var(--text-secondary);
+            cursor: pointer;
+            font-size: 1rem;
+            transition: all 0.2s;
+        }
+
+        .settings-btn:hover {
+            border-color: var(--accent-blue);
+            color: var(--accent-blue);
+        }
+
+        /* 닉네임 표시 스타일 (출금대상) */
+        .nickname-badge {
+            background: rgba(77, 166, 255, 0.15);
+            color: var(--accent-blue);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            font-weight: 500;
+        }
+
+        /* 파일 업로드 숨김 */
+        .hidden-file-input {
+            display: none;
+        }
     </style>
 </head>
 <body>
@@ -1142,6 +1350,7 @@
                     <span>마지막 갱신:</span>
                     <span id="lastUpdate">-</span>
                 </div>
+                <button class="settings-btn" onclick="openNicknameModal()" title="지갑 닉네임 설정">⚙️</button>
             </div>
         </header>
 
@@ -1333,7 +1542,7 @@
                         </div>
                     </div>
                 </div>
-                <div class="table-container">
+                <div class="table-container" id="tableContainer">
                     <table>
                         <thead>
                             <tr>
@@ -1412,6 +1621,62 @@
         </div>
     </div>
 
+    <!-- Nickname Settings Modal -->
+    <div class="modal-overlay" id="nicknameModal" onclick="if(event.target===this) closeNicknameModal()">
+        <div class="modal nickname-modal">
+            <div class="modal-header">
+                <h3>📋 지갑 닉네임 관리</h3>
+                <button class="modal-close" onclick="closeNicknameModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <!-- 개별 추가 -->
+                <div class="nickname-section">
+                    <div class="nickname-section-title">➕ 개별 추가</div>
+                    <div class="nickname-input-row">
+                        <input type="text" id="nicknameAddress" placeholder="지갑 주소 (0x...)">
+                        <input type="text" id="nicknameName" placeholder="닉네임" style="max-width: 150px;">
+                        <button class="nickname-btn nickname-btn-primary" onclick="addSingleNickname()" style="flex: 0;">추가</button>
+                    </div>
+                </div>
+
+                <!-- 일괄 추가 (텍스트) -->
+                <div class="nickname-section">
+                    <div class="nickname-section-title">📝 일괄 추가 (텍스트)</div>
+                    <textarea class="nickname-textarea" id="nicknameBulkText" placeholder="주소,닉네임 (한 줄에 하나씩)&#10;예시:&#10;0xabc123...,콜드월렛1&#10;0xdef456...,거래소출금"></textarea>
+                    <div class="nickname-hint">형식: 주소,닉네임 (쉼표로 구분, 한 줄에 하나씩)</div>
+                    <div class="nickname-btn-row">
+                        <button class="nickname-btn nickname-btn-primary" onclick="addBulkNicknames()">📥 일괄 등록</button>
+                    </div>
+                </div>
+
+                <!-- 엑셀 일괄 등록 -->
+                <div class="nickname-section">
+                    <div class="nickname-section-title">📊 엑셀로 일괄 등록</div>
+                    <div class="nickname-btn-row">
+                        <button class="nickname-btn" onclick="downloadSampleExcel()">📥 샘플 양식 다운로드</button>
+                        <button class="nickname-btn" onclick="document.getElementById('excelFileInput').click()">📤 엑셀 파일 업로드</button>
+                    </div>
+                    <input type="file" id="excelFileInput" class="hidden-file-input" accept=".xlsx,.xls,.csv" onchange="handleExcelUpload(event)">
+                </div>
+
+                <!-- 등록된 목록 -->
+                <div class="nickname-section">
+                    <div class="nickname-section-title">
+                        📋 등록된 닉네임 <span class="nickname-count" id="nicknameCount">(0개)</span>
+                    </div>
+                    <div class="nickname-list" id="nicknameList">
+                        <div class="nickname-empty">등록된 닉네임이 없습니다.</div>
+                    </div>
+                    <div class="nickname-btn-row" style="margin-top: 12px;">
+                        <button class="nickname-btn" onclick="exportNicknames()">📤 내보내기 (JSON)</button>
+                        <button class="nickname-btn" onclick="document.getElementById('jsonFileInput').click()">📥 가져오기 (JSON)</button>
+                        <button class="nickname-btn" onclick="clearAllNicknames()" style="color: var(--accent-red);">🗑️ 전체 삭제</button>
+                    </div>
+                    <input type="file" id="jsonFileInput" class="hidden-file-input" accept=".json" onchange="handleJsonImport(event)">
+                </div>
+            </div>
+        </div>
+    </div>
 
     <!-- Loading Overlay - Streamlit 스타일 -->
     <div class="loading-overlay" id="loadingOverlay">
@@ -1423,6 +1688,303 @@
     </div>
 
     <script>
+        // ===== 지갑 닉네임 관리 =====
+        const NICKNAME_STORAGE_KEY = 'hotwallet_nicknames';
+        let walletNicknames = {};
+
+        // localStorage에서 닉네임 로드
+        function loadNicknames() {
+            try {
+                const saved = localStorage.getItem(NICKNAME_STORAGE_KEY);
+                if (saved) {
+                    walletNicknames = JSON.parse(saved);
+                }
+            } catch (e) {
+                console.error('닉네임 로드 실패:', e);
+                walletNicknames = {};
+            }
+        }
+
+        // localStorage에 닉네임 저장
+        function saveNicknames() {
+            try {
+                localStorage.setItem(NICKNAME_STORAGE_KEY, JSON.stringify(walletNicknames));
+            } catch (e) {
+                console.error('닉네임 저장 실패:', e);
+            }
+        }
+
+        // 주소로 닉네임 조회 (없으면 null)
+        function getNickname(address) {
+            if (!address) return null;
+            const normalized = address.toLowerCase();
+            return walletNicknames[normalized] || null;
+        }
+
+        // 닉네임 추가/수정
+        function setNickname(address, nickname) {
+            if (!address || !nickname) return false;
+            const normalized = address.toLowerCase();
+            walletNicknames[normalized] = nickname.trim();
+            saveNicknames();
+            return true;
+        }
+
+        // 닉네임 삭제
+        function deleteNickname(address) {
+            if (!address) return false;
+            const normalized = address.toLowerCase();
+            if (walletNicknames[normalized]) {
+                delete walletNicknames[normalized];
+                saveNicknames();
+                return true;
+            }
+            return false;
+        }
+
+        // 모달 열기
+        function openNicknameModal() {
+            document.getElementById('nicknameModal').classList.add('active');
+            renderNicknameList();
+        }
+
+        // 모달 닫기
+        function closeNicknameModal() {
+            document.getElementById('nicknameModal').classList.remove('active');
+            // 입력 필드 초기화
+            document.getElementById('nicknameAddress').value = '';
+            document.getElementById('nicknameName').value = '';
+            document.getElementById('nicknameBulkText').value = '';
+        }
+
+        // 닉네임 목록 렌더링
+        function renderNicknameList() {
+            const listEl = document.getElementById('nicknameList');
+            const countEl = document.getElementById('nicknameCount');
+            const entries = Object.entries(walletNicknames);
+
+            countEl.textContent = `(${entries.length}개)`;
+
+            if (entries.length === 0) {
+                listEl.innerHTML = '<div class="nickname-empty">등록된 닉네임이 없습니다.</div>';
+                return;
+            }
+
+            listEl.innerHTML = entries.map(([address, nickname]) => `
+                <div class="nickname-item">
+                    <div>
+                        <span class="nickname-item-address">${shortenAddress(address)}</span>
+                        <span class="nickname-item-name">${nickname}</span>
+                    </div>
+                    <button class="nickname-item-delete" onclick="deleteNicknameAndRefresh('${address}')" title="삭제">🗑️</button>
+                </div>
+            `).join('');
+        }
+
+        // 삭제 후 목록 갱신
+        function deleteNicknameAndRefresh(address) {
+            if (deleteNickname(address)) {
+                renderNicknameList();
+                // 테이블도 갱신 (닉네임 반영)
+                updateWalletTable(true);
+            }
+        }
+
+        // 개별 추가
+        function addSingleNickname() {
+            const addressInput = document.getElementById('nicknameAddress');
+            const nameInput = document.getElementById('nicknameName');
+            const address = addressInput.value.trim();
+            const nickname = nameInput.value.trim();
+
+            if (!address || !nickname) {
+                alert('주소와 닉네임을 모두 입력해주세요.');
+                return;
+            }
+
+            if (!address.startsWith('0x') || address.length !== 42) {
+                alert('올바른 지갑 주소 형식이 아닙니다. (0x로 시작하는 42자)');
+                return;
+            }
+
+            setNickname(address, nickname);
+            renderNicknameList();
+            updateWalletTable(true);
+
+            // 입력 필드 초기화
+            addressInput.value = '';
+            nameInput.value = '';
+        }
+
+        // 일괄 추가 (텍스트)
+        function addBulkNicknames() {
+            const textarea = document.getElementById('nicknameBulkText');
+            const text = textarea.value.trim();
+
+            if (!text) {
+                alert('추가할 내용을 입력해주세요.');
+                return;
+            }
+
+            const lines = text.split('\n').filter(line => line.trim());
+            let addedCount = 0;
+            let errorLines = [];
+
+            lines.forEach((line, index) => {
+                const parts = line.split(',');
+                if (parts.length >= 2) {
+                    const address = parts[0].trim();
+                    const nickname = parts.slice(1).join(',').trim(); // 닉네임에 쉼표가 있을 수 있음
+
+                    if (address.startsWith('0x') && address.length === 42 && nickname) {
+                        setNickname(address, nickname);
+                        addedCount++;
+                    } else {
+                        errorLines.push(index + 1);
+                    }
+                } else {
+                    errorLines.push(index + 1);
+                }
+            });
+
+            if (errorLines.length > 0) {
+                alert(`${addedCount}개 추가됨. ${errorLines.length}개 오류 (${errorLines.join(', ')}번째 줄)`);
+            } else {
+                alert(`${addedCount}개 추가됨.`);
+            }
+
+            renderNicknameList();
+            updateWalletTable(true);
+            textarea.value = '';
+        }
+
+        // 샘플 엑셀 다운로드
+        function downloadSampleExcel() {
+            const sampleData = [
+                ['address', 'nickname'],
+                ['0x1234567890123456789012345678901234567890', '내 콜드월렛'],
+                ['0xabcdef1234567890abcdef1234567890abcdef12', '거래소 출금']
+            ];
+
+            const ws = XLSX.utils.aoa_to_sheet(sampleData);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, 'nicknames');
+
+            // 열 너비 설정
+            ws['!cols'] = [{ wch: 45 }, { wch: 20 }];
+
+            XLSX.writeFile(wb, 'wallet_nicknames_sample.xlsx');
+        }
+
+        // 엑셀 파일 업로드 처리
+        function handleExcelUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    const sheetName = workbook.SheetNames[0];
+                    const sheet = workbook.Sheets[sheetName];
+                    const jsonData = XLSX.utils.sheet_to_json(sheet);
+
+                    let addedCount = 0;
+                    jsonData.forEach(row => {
+                        const address = (row.address || row['주소'] || '').toString().trim();
+                        const nickname = (row.nickname || row['닉네임'] || '').toString().trim();
+
+                        if (address.startsWith('0x') && address.length === 42 && nickname) {
+                            setNickname(address, nickname);
+                            addedCount++;
+                        }
+                    });
+
+                    alert(`${addedCount}개 닉네임이 추가되었습니다.`);
+                    renderNicknameList();
+                    updateWalletTable(true);
+                } catch (err) {
+                    console.error('엑셀 파싱 오류:', err);
+                    alert('엑셀 파일 읽기 오류: ' + err.message);
+                }
+            };
+            reader.readAsArrayBuffer(file);
+
+            // 같은 파일 다시 선택 가능하도록
+            event.target.value = '';
+        }
+
+        // JSON 내보내기
+        function exportNicknames() {
+            const entries = Object.entries(walletNicknames);
+            if (entries.length === 0) {
+                alert('내보낼 닉네임이 없습니다.');
+                return;
+            }
+
+            const dataStr = JSON.stringify(walletNicknames, null, 2);
+            const blob = new Blob([dataStr], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'wallet_nicknames.json';
+            a.click();
+
+            URL.revokeObjectURL(url);
+        }
+
+        // JSON 가져오기
+        function handleJsonImport(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const imported = JSON.parse(e.target.result);
+                    let addedCount = 0;
+
+                    Object.entries(imported).forEach(([address, nickname]) => {
+                        if (address && nickname) {
+                            setNickname(address, nickname);
+                            addedCount++;
+                        }
+                    });
+
+                    alert(`${addedCount}개 닉네임을 가져왔습니다.`);
+                    renderNicknameList();
+                    updateWalletTable(true);
+                } catch (err) {
+                    console.error('JSON 파싱 오류:', err);
+                    alert('JSON 파일 읽기 오류: ' + err.message);
+                }
+            };
+            reader.readAsText(file);
+
+            event.target.value = '';
+        }
+
+        // 전체 삭제
+        function clearAllNicknames() {
+            const count = Object.keys(walletNicknames).length;
+            if (count === 0) {
+                alert('삭제할 닉네임이 없습니다.');
+                return;
+            }
+
+            if (confirm(`${count}개의 닉네임을 모두 삭제하시겠습니까?`)) {
+                walletNicknames = {};
+                saveNicknames();
+                renderNicknameList();
+                updateWalletTable(true);
+            }
+        }
+
+        // 페이지 로드 시 닉네임 불러오기
+        loadNicknames();
+
         // ===== 설정 데이터 =====
         const CONFIG = {
             chains: {
@@ -1682,22 +2244,19 @@
             return `$${formatNumber(num)}`;
         }
 
-        // 잔고용 (쉼표 포함, 소수점 4자리) - 기존 Streamlit 스타일
+        // 잔고용 (쉼표 포함, 소수점 2자리)
         function formatBalance(num) {
-            if (num === null || num === undefined || isNaN(num)) return '0.0000';
+            if (num === null || num === undefined || isNaN(num)) return '0.00';
             return num.toLocaleString('en-US', {
-                minimumFractionDigits: 4,
-                maximumFractionDigits: 4
-            });
-        }
-
-        // 달러 환산용 (쉼표 포함, 소수점 2자리) - 기존 Streamlit 스타일
-        function formatUsdTable(num) {
-            if (num === null || num === undefined || isNaN(num)) return '$0.00';
-            return '$' + num.toLocaleString('en-US', {
                 minimumFractionDigits: 2,
                 maximumFractionDigits: 2
             });
+        }
+
+        // 달러 환산용 (쉼표 포함, 정수) - 소수점 없이 표시
+        function formatUsdTable(num) {
+            if (num === null || num === undefined || isNaN(num)) return '$0';
+            return '$' + Math.round(num).toLocaleString('en-US');
         }
 
         function formatTimeAgo(timestamp) {
@@ -2370,6 +2929,12 @@
             const chainConfig = CONFIG.chains[currentChain];
             const existingRows = tbody.querySelectorAll('tr');
 
+            // 스크롤 위치 저장 (테이블 컨테이너 + 페이지 전체)
+            const tableContainer = document.getElementById('tableContainer');
+            const savedScrollTop = tableContainer ? tableContainer.scrollTop : 0;
+            const savedScrollLeft = tableContainer ? tableContainer.scrollLeft : 0;
+            const savedPageScrollY = window.scrollY;
+
             let totalBalance = 0;
             let totalUsd = 0;
 
@@ -2405,13 +2970,19 @@
                         withdrawalCell.textContent = withdrawalUsd;
                     }
 
-                    // 출금 대상 업데이트
+                    // 출금 대상 업데이트 (닉네임 우선 표시)
                     const targetCell = row.querySelector('.withdrawal-target');
                     if (targetCell) {
-                        const withdrawalTo = wallet.withdrawal && wallet.withdrawal.to && !wallet.withdrawal.error
-                            ? shortenAddress(wallet.withdrawal.to)
-                            : '-';
-                        targetCell.textContent = withdrawalTo;
+                        if (wallet.withdrawal && wallet.withdrawal.to && !wallet.withdrawal.error) {
+                            const nickname = getNickname(wallet.withdrawal.to);
+                            if (nickname) {
+                                targetCell.innerHTML = `<span class="nickname-badge">${nickname}</span>`;
+                            } else {
+                                targetCell.textContent = shortenAddress(wallet.withdrawal.to);
+                            }
+                        } else {
+                            targetCell.textContent = '-';
+                        }
                     }
 
                     // 출금 시간 업데이트 + 강조 표시
@@ -2460,10 +3031,16 @@
                         ? formatUsdTable(wallet.withdrawal.amount * currentPrice)
                         : wallet.withdrawal?.error ? 'ERR' : '-');
 
-                    // 출금 대상 (주소 축약)
-                    const withdrawalTo = isDex ? '-' : (wallet.withdrawal && wallet.withdrawal.to && !wallet.withdrawal.error
-                        ? shortenAddress(wallet.withdrawal.to)
-                        : '-');
+                    // 출금 대상 (닉네임 우선, 없으면 주소 축약)
+                    let withdrawalToDisplay = '-';
+                    if (!isDex && wallet.withdrawal && wallet.withdrawal.to && !wallet.withdrawal.error) {
+                        const nickname = getNickname(wallet.withdrawal.to);
+                        if (nickname) {
+                            withdrawalToDisplay = `<span class="nickname-badge">${nickname}</span>`;
+                        } else {
+                            withdrawalToDisplay = shortenAddress(wallet.withdrawal.to);
+                        }
+                    }
 
                     // 출금 시간
                     const withdrawalTime = isDex ? '-' : (wallet.withdrawal && wallet.withdrawal.timestamp && !wallet.withdrawal.error
@@ -2501,7 +3078,7 @@
                             <td class="usd-value ${usdHighlightClass}">${formatUsdTable(wallet.usdValue)}</td>
                             <td class="withdrawal-amount">${withdrawalUsd}</td>
                             <td class="withdrawal-target ${withdrawalToFull ? 'clickable-link' : ''}" ${withdrawalToFull ? `onclick="window.open('${chainConfig.explorer}/token/${currentToken}?a=${withdrawalToFull}', '_blank')" title="클릭하여 출금대상 탐색기 열기"` : ''}>
-                                ${withdrawalTo}
+                                ${withdrawalToDisplay}
                             </td>
                             <td class="withdrawal-time ${timeHighlightClass}">${withdrawalTime}</td>
                             <td>
@@ -2521,6 +3098,15 @@
 
             // CEX/DEX 통계 업데이트
             updateStats(totalBalance, totalUsd);
+
+            // 스크롤 위치 복원 (새로고침 후에도 스크롤 위치 유지)
+            requestAnimationFrame(() => {
+                if (tableContainer) {
+                    tableContainer.scrollTop = savedScrollTop;
+                    tableContainer.scrollLeft = savedScrollLeft;
+                }
+                window.scrollTo(0, savedPageScrollY);
+            });
         }
 
         // DEX 데이터 저장
@@ -3482,5 +4068,6 @@
     </script>
 </body>
 </html>
+
 
 

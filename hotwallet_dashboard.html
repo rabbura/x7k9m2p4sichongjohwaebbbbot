@@ -995,8 +995,8 @@
             left: 22px;
         }
 
-        /* 모바일 반응형 */
-        @media (max-width: 1200px) {
+        /* 태블릿 반응형 (768px ~ 1200px) */
+        @media (max-width: 1200px) and (min-width: 769px) {
             .table-container {
                 overflow-x: auto;
             }
@@ -1115,13 +1115,133 @@
                 grid-template-columns: 1fr;
             }
 
-            table {
-                font-size: 0.7rem;
-                min-width: 600px;
-            }
-
             .stat-value {
                 font-size: 0.9rem;
+            }
+        }
+
+        /* 모바일 테이블 최적화 (768px 이하) */
+        @media (max-width: 768px) {
+            /* 테이블 스크롤 없이 화면에 맞추기 */
+            .table-container {
+                overflow-x: auto;
+            }
+
+            table {
+                min-width: unset;
+                width: 100%;
+                font-size: 0.75rem;
+            }
+
+            /* 모바일에서 숨길 컬럼: 주소(3), 출금대상(7), 오른쪽 출금시간(8), 탐색기(9) */
+            table th:nth-child(3),
+            table td:nth-child(3),
+            table th:nth-child(7),
+            table td:nth-child(7),
+            table th:nth-child(8),
+            table td:nth-child(8),
+            table th:nth-child(9),
+            table td:nth-child(9) {
+                display: none;
+            }
+
+            /* 모바일에서 강조할 컬럼 */
+            /* 출금시간 (1번) */
+            table th:nth-child(1),
+            table td:nth-child(1) {
+                font-size: 0.7rem;
+                white-space: nowrap;
+            }
+
+            /* 지갑이름 (2번) - 축약 */
+            table th:nth-child(2),
+            table td:nth-child(2) {
+                max-width: 80px;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+                font-size: 0.7rem;
+            }
+
+            /* 잔고 (4번) - 강조 */
+            table td:nth-child(4) {
+                font-weight: 600;
+                font-size: 0.8rem;
+                color: var(--text-primary);
+            }
+
+            /* 달러환산 (5번) - 가장 강조 */
+            table td:nth-child(5) {
+                font-weight: 700;
+                font-size: 0.85rem;
+                color: var(--accent-green) !important;
+            }
+
+            /* 최근출금$ (6번) */
+            table td:nth-child(6) {
+                font-size: 0.75rem;
+            }
+
+            /* 타입 (10번) - 작게 */
+            table th:nth-child(10),
+            table td:nth-child(10) {
+                font-size: 0.65rem;
+                padding: 4px 2px;
+            }
+
+            /* 셀 패딩 축소 */
+            table th, table td {
+                padding: 8px 4px;
+            }
+
+            /* 테이블 헤더 스타일 */
+            table th {
+                font-size: 0.65rem;
+                white-space: nowrap;
+            }
+        }
+
+        /* 더 작은 모바일 (480px 이하) */
+        @media (max-width: 480px) {
+            table {
+                font-size: 0.7rem;
+            }
+
+            /* 최근출금($)도 숨김 - 공간 확보 */
+            table th:nth-child(6),
+            table td:nth-child(6) {
+                display: none;
+            }
+
+            /* 타입도 숨김 */
+            table th:nth-child(10),
+            table td:nth-child(10) {
+                display: none;
+            }
+
+            /* 잔고, 달러환산 더 강조 */
+            table td:nth-child(4) {
+                font-size: 0.85rem;
+            }
+
+            table td:nth-child(5) {
+                font-size: 0.9rem;
+            }
+
+            /* 출금시간 컴팩트 */
+            table td:nth-child(1) {
+                font-size: 0.65rem;
+                max-width: 50px;
+            }
+
+            /* 지갑이름 더 축약 */
+            table td:nth-child(2) {
+                max-width: 60px;
+                font-size: 0.65rem;
+            }
+
+            table th, table td {
+                padding: 6px 3px;
             }
         }
 
@@ -2641,8 +2761,10 @@
 
             // 기존 DEX 데이터 보존
             const existingDexData = walletData.filter(w => w.type === 'DEX');
-            walletData = [];
             const total = walletEntries.length;
+
+            // 임시 배열에 새 데이터 수집 (기존 walletData 유지하면서)
+            const newWalletData = [];
 
             // 병렬로 잔고 조회 (빠름)
             const balancePromises = walletEntries.map(async ([name, address]) => {
@@ -2652,13 +2774,13 @@
 
             const balanceResults = await Promise.allSettled(balancePromises);
 
-            // 잔고 결과로 walletData 초기화 (출금 내역은 캐시에서 가져오거나 null)
+            // 잔고 결과로 임시 배열에 추가 (출금 내역은 캐시에서 가져오거나 null)
             walletEntries.forEach(([name, address], index) => {
                 const result = balanceResults[index];
                 const balance = result.status === 'fulfilled' ? result.value.balance : 0;
                 const usdValue = balance * currentPrice;
 
-                walletData.push({
+                newWalletData.push({
                     name,
                     address,
                     balance,
@@ -2677,8 +2799,11 @@
                 if (currentPrice > 0 && dex.balance > 0) {
                     dex.usdValue = dex.balance * currentPrice;
                 }
-                walletData.push(dex);
+                newWalletData.push(dex);
             });
+
+            // 모든 데이터 준비 완료 후 한 번에 교체 (깜빡임 방지)
+            walletData = newWalletData;
 
             // 잔고 먼저 테이블에 표시 (로딩 해제)
             // skipSort=true면 정렬 스킵 (DEX 데이터 추가 후 한 번에 정렬)

@@ -1153,7 +1153,7 @@
                 white-space: nowrap;
             }
 
-            /* 지갑이름 (2번) - 축약 */
+            /* 지갑이름 (2번) - 축약 + 클릭 가능 표시 */
             table th:nth-child(2),
             table td:nth-child(2) {
                 max-width: 80px;
@@ -1161,6 +1161,18 @@
                 text-overflow: ellipsis;
                 white-space: nowrap;
                 font-size: 0.7rem;
+            }
+
+            /* 모바일에서 지갑이름 클릭 가능 표시 */
+            table td.wallet-name {
+                cursor: pointer;
+                color: var(--accent-blue);
+                text-decoration: underline;
+                text-decoration-style: dotted;
+            }
+
+            table td.wallet-name:active {
+                opacity: 0.7;
             }
 
             /* 잔고 (4번) - 강조 */
@@ -1242,6 +1254,70 @@
 
             table th, table td {
                 padding: 6px 3px;
+            }
+        }
+
+        /* 모바일 테이블 안내 문구 */
+        .mobile-table-info {
+            display: none;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--accent-blue);
+            border-radius: 8px;
+            padding: 8px 12px;
+            margin-bottom: 10px;
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+        }
+
+        @media (max-width: 768px) {
+            .mobile-table-info {
+                display: block;
+            }
+        }
+
+        /* 모바일에서 CEX/DEX 통계 축소 */
+        @media (max-width: 768px) {
+            .stats-grid {
+                grid-template-columns: repeat(3, 1fr);
+                gap: 6px;
+            }
+
+            .stat-card {
+                padding: 8px;
+            }
+
+            .stat-card .stat-label {
+                font-size: 0.6rem;
+            }
+
+            .stat-card .stat-value {
+                font-size: 0.75rem;
+            }
+
+            /* 요약 섹션도 축소 */
+            .summary-section {
+                flex-wrap: wrap;
+                gap: 8px;
+                padding: 8px;
+            }
+
+            .summary-item {
+                font-size: 0.7rem;
+            }
+        }
+
+        @media (max-width: 480px) {
+            /* 더 작은 화면에서 통계 2열 */
+            .stats-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+            .stat-card .stat-label {
+                font-size: 0.55rem;
+            }
+
+            .stat-card .stat-value {
+                font-size: 0.7rem;
             }
         }
 
@@ -1661,6 +1737,10 @@
                             <span id="withdrawalStatusText">출금 내역 조회 중...</span>
                         </div>
                     </div>
+                </div>
+                <!-- 반응형 테이블 안내 (모바일에서만 표시) -->
+                <div id="mobileTableInfo" class="mobile-table-info">
+                    📱 <strong>모바일 보기:</strong> 지갑이름을 탭하면 탐색기로 이동합니다
                 </div>
                 <div class="table-container" id="tableContainer">
                     <table>
@@ -2437,6 +2517,14 @@
             return `${addr.slice(0, 10)}...${addr.slice(-6)}`;
         }
 
+        // 모바일에서 지갑이름 클릭 시 탐색기 열기 (768px 이하에서만 동작)
+        function handleMobileWalletClick(event, explorerUrl) {
+            if (window.innerWidth <= 768) {
+                event.preventDefault();
+                window.open(explorerUrl, '_blank');
+            }
+        }
+
         // 클립보드 복사 함수
         async function copyToClipboard(text, element) {
             if (!text || text === '-') return;
@@ -3210,7 +3298,7 @@
                     return `
                         <tr class="${wallet.isMain ? 'highlight' : ''}" data-address="${wallet.address}">
                             <td class="withdrawal-time-left ${timeHighlightClass}">${withdrawalTime}</td>
-                            <td class="wallet-name ${timeHighlightClass}">
+                            <td class="wallet-name ${timeHighlightClass}" data-explorer="${explorerUrl}" onclick="handleMobileWalletClick(event, '${explorerUrl}')">
                                 ${wallet.name.replace('(거의메인)', '').replace('(메인추정)', '').replace('(콜드추정)', '')}
                                 ${wallet.isMain ? '<span class="badge">메인추정</span>' : ''}
                             </td>
@@ -4216,5 +4304,4 @@
     </script>
 </body>
 </html>
-
 

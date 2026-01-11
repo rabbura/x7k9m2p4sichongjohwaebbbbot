@@ -2229,6 +2229,27 @@
         let withdrawalCache = new Map();   // 출금 내역 캐시 (address -> withdrawal)
         let failedAddresses = new Set();  // NOTOK으로 실패한 주소 (다음 갱신 때 우선 재시도)
 
+        // ===== 스크롤 위치 저장 (전역) =====
+        let savedScrollY = 0;
+        let savedTableScrollTop = 0;
+        let savedTableScrollLeft = 0;
+
+        // 스크롤 이벤트 리스너 (스크롤할 때마다 위치 저장)
+        window.addEventListener('scroll', () => {
+            savedScrollY = window.scrollY;
+        });
+
+        // 테이블 컨테이너 스크롤 이벤트 (DOM 로드 후 등록)
+        document.addEventListener('DOMContentLoaded', () => {
+            const tableContainer = document.getElementById('tableContainer');
+            if (tableContainer) {
+                tableContainer.addEventListener('scroll', () => {
+                    savedTableScrollTop = tableContainer.scrollTop;
+                    savedTableScrollLeft = tableContainer.scrollLeft;
+                });
+            }
+        });
+
         // ===== 유틸리티 함수 =====
         // 시총/FDV 등 큰 금액용 (축약형: 1.23B, 45.6M)
         function formatNumber(num, decimals = 2) {
@@ -2930,12 +2951,7 @@
             const tbody = document.getElementById('walletTableBody');
             const chainConfig = CONFIG.chains[currentChain];
             const existingRows = tbody.querySelectorAll('tr');
-
-            // 스크롤 위치 저장 (테이블 컨테이너 + 페이지 전체)
             const tableContainer = document.getElementById('tableContainer');
-            const savedScrollTop = tableContainer ? tableContainer.scrollTop : 0;
-            const savedScrollLeft = tableContainer ? tableContainer.scrollLeft : 0;
-            const savedPageScrollY = window.scrollY;
 
             let totalBalance = 0;
             let totalUsd = 0;
@@ -3101,15 +3117,14 @@
             // CEX/DEX 통계 업데이트
             updateStats(totalBalance, totalUsd);
 
-            // 스크롤 위치 복원 (새로고침 후에도 스크롤 위치 유지)
-            // setTimeout 사용으로 DOM 렌더링 완료 후 복원 보장
+            // 스크롤 위치 복원 (전역 변수에 저장된 위치 사용)
             setTimeout(() => {
                 if (tableContainer) {
-                    tableContainer.scrollTop = savedScrollTop;
-                    tableContainer.scrollLeft = savedScrollLeft;
+                    tableContainer.scrollTop = savedTableScrollTop;
+                    tableContainer.scrollLeft = savedTableScrollLeft;
                 }
-                window.scrollTo(0, savedPageScrollY);
-            }, 10);
+                window.scrollTo(0, savedScrollY);
+            }, 50);
         }
 
         // DEX 데이터 저장
@@ -3352,13 +3367,13 @@
         // 큰 숫자 포맷 (쉼표 포함)
         function formatLargeNumber(num) {
             if (num === null || num === undefined || isNaN(num)) return '0';
-            return num.toLocaleString('en-US', { maximumFractionDigits: 4 });
+            return Math.round(num).toLocaleString('en-US');
         }
 
-        // USD 전체 표시 (쉼표 포함)
+        // USD 전체 표시 (쉼표 포함, 정수)
         function formatUsdFull(num) {
-            if (num === null || num === undefined || isNaN(num)) return '$0.00';
-            return '$' + num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            if (num === null || num === undefined || isNaN(num)) return '$0';
+            return '$' + Math.round(num).toLocaleString('en-US');
         }
 
         // 컨트랙트 주소 복사
@@ -4076,4 +4091,5 @@
     </script>
 </body>
 </html>
+
 

@@ -1535,8 +1535,7 @@
         <header class="header">
             <div class="header-title">
                 <span style="font-size: 2rem;">🔥</span>
-                <h1>핫월렛 토큰 대시보드 <span style="font-size:0.7em; color:#555;
-  font-weight:normal;">by 라부라</span></h1>
+                <h1>핫월렛 토큰 대시보드</h1>
             </div>
             <div class="header-status">
                 <div class="status-item">
@@ -2195,6 +2194,8 @@
                     explorer: "https://etherscan.io",
                     explorerApi: "https://api.etherscan.io/v2/api",
                     rpcUrls: [
+                        "https://cloudflare-eth.com",
+                        "https://eth.llamarpc.com",
                         "https://eth.drpc.org",
                         "https://rpc.ankr.com/eth",
                         "https://ethereum-rpc.publicnode.com",
@@ -2219,14 +2220,12 @@
                         "바빗핫2": "0xA31231E727Ca53Ff95f0D00a06C645110c4aB647",
                         "바빗핫3": "0xad85405cbb1476825b78a021fa9e543bf7937549",
                         "바빗핫4": "0x6522B7F9d481eCEB96557F44753a4b893F837E90",
-                        "바빗핫5": "0xEFEF30bD1ccA520619306C95091aB18473fEBC5c",
                         "바빗핫173(거의메인)": "0xf42aac93ab142090db9fdc0bc86aab73cb36f173",
                         "코베10번핫(거의메인)": "0xa9d1e08c7793af67e9d92fe308d5697fb81d3e43",
                         "빗겟3번핫": "0x97b9D2102A9a65A26E1EE82D59e42d1B73B68689",
                         "빗겟5번핫(거의메인)": "0x5bdf85216ec1e38d6458c870992a69e38e03f7ef",
                         "빗겟4번핫": "0x0639556f03714a74a5feeaf5736a4a64ff70d206",
                         "빗겟6번핫(거의메인)": "0x1ab4973a48dc892cd9971ece8e01dcc7688f8f23",
-                        "빗겟35번핫(콜드추정)": "0xffa8DB7B38579e6A2D14f9B347a9acE4d044cD54",
                         "오켁핫(메인추정)": "0x91d40e4818f4d4c57b4578d9eca6afc92ac8debe",
                         "오켁146지갑": "0x4a4aaa0155237881fbd5c34bfae16e985a7b068d",
                         "오켁콜드": "0xdce83237fbf279c4522e7cac4b10428e2b8694da",
@@ -2236,8 +2235,6 @@
                         "코빗8번핫": "0xf0bc8fddb1f358cef470d63f96ae65b1d7914953",
                         "코인원1번핫": "0x167a9333bf582556f35bd4d16a7e80e191aa6476",
                         "후오비48번핫(거의메인)": "0xa03400e098f4421b34a3a44a1b4e571419517687",
-                        "후오비60번핫(콜드추정)": "0x4fb312915B779b1339388e14b6d079741Ca83128",
-                        "후오비recovery(찐콜드추정)": "0x18709E89BD403F470088aBDAcEbE86CC60dda12e",
                         "크닷12번핫(메인추정)": "0x46340b20830761efd32832a74d7169b29feb9758",
                         "크닷21번핫": "0x5b71d5fd6bb118665582dd87922bf3b9de6c75f9",
                         "빙핫": "0x065AC3d33FEC104FBa9f2f4D674AfAA7c4EBcF43",
@@ -2681,12 +2678,32 @@
         }
 
         // ===== RPC Provider 가져오기 =====
-        const providerCache = new Map();
+        const providerCache = new Map();      // chain -> { provider, cachedAt, blockNumber }
+        const PROVIDER_CACHE_TTL = 3 * 60 * 1000;  // 3분마다 캐시 갱신
 
-        async function getProvider(chain) {
-            // 캐시된 provider 반환
-            if (providerCache.has(chain)) {
-                return providerCache.get(chain);
+        async function getProvider(chain, forceRefresh = false) {
+            const cached = providerCache.get(chain);
+
+            // 캐시 유효성 검사
+            if (cached && !forceRefresh) {
+                const age = Date.now() - cached.cachedAt;
+                if (age < PROVIDER_CACHE_TTL) {
+                    return cached.provider;
+                }
+                // TTL 만료 → 현재 provider 건강 체크
+                try {
+                    const currentBlock = await Promise.race([
+                        cached.provider.getBlockNumber(),
+                        new Promise((_, reject) => setTimeout(() => reject('timeout'), 3000))
+                    ]);
+                    if (currentBlock > cached.blockNumber) {
+                        providerCache.set(chain, { provider: cached.provider, cachedAt: Date.now(), blockNumber: currentBlock });
+                        return cached.provider;
+                    }
+                    console.warn(`[RPC] ${chain} provider stale (block ${cached.blockNumber} → ${currentBlock}), 교체 시도`);
+                } catch (e) {
+                    console.warn(`[RPC] ${chain} provider 건강체크 실패, 교체 시도`);
+                }
             }
 
             const chainConfig = CONFIG.chains[chain];
@@ -2694,21 +2711,43 @@
                 return null;
             }
 
-            // RPC URL 순회하며 작동하는 것 찾기
-            for (const rpcUrl of chainConfig.rpcUrls) {
-                try {
+            // 모든 RPC 병렬 테스트 → 가장 최신 블록인 provider 선택
+            const results = await Promise.allSettled(
+                chainConfig.rpcUrls.map(async (rpcUrl) => {
                     const provider = new ethers.providers.JsonRpcProvider(rpcUrl);
-                    // 연결 테스트
-                    await provider.getBlockNumber();
-                    // 성공시 캐시하고 반환
-                    providerCache.set(chain, provider);
-                    return provider;
-                } catch (e) {
-                    continue;
+                    const blockNumber = await Promise.race([
+                        provider.getBlockNumber(),
+                        new Promise((_, reject) => setTimeout(() => reject('timeout'), 3000))
+                    ]);
+                    return { provider, blockNumber, rpcUrl };
+                })
+            );
+
+            let bestProvider = null;
+            let bestBlock = 0;
+            let bestUrl = '';
+
+            for (const result of results) {
+                if (result.status === 'fulfilled' && result.value.blockNumber > bestBlock) {
+                    bestBlock = result.value.blockNumber;
+                    bestProvider = result.value.provider;
+                    bestUrl = result.value.rpcUrl;
                 }
             }
 
+            if (bestProvider) {
+                providerCache.set(chain, { provider: bestProvider, cachedAt: Date.now(), blockNumber: bestBlock });
+                console.log(`[RPC] ${chain} 최적 provider 선택: ${bestUrl} (block: ${bestBlock})`);
+                return bestProvider;
+            }
+
             return null;
+        }
+
+        // Provider 캐시 강제 초기화
+        function clearProviderCache() {
+            providerCache.clear();
+            console.log('[RPC] Provider 캐시 초기화');
         }
 
         // ===== 토큰 정보 조회 (ethers.js) =====
@@ -2728,10 +2767,17 @@
                     const [name, symbol, decimals] = await Promise.all([
                         contract.name().catch(() => 'Unknown'),
                         contract.symbol().catch(() => 'UNKNOWN'),
-                        contract.decimals().catch(() => 18)
+                        contract.decimals().then(d => Number(d)).catch(() => 18)
                     ]);
 
-                    return { name, symbol, decimals };
+                    // decimals 정수/범위 검증 (BigNumber 오염, 0 반환 등 방어)
+                    const validDecimals = (Number.isInteger(decimals) && decimals >= 1 && decimals <= 36)
+                        ? decimals : 18;
+                    if (validDecimals !== decimals) {
+                        console.warn('[getTokenInfo] decimals 비정상:', decimals, '→ 18 폴백', { rpcUrl, tokenContract });
+                    }
+
+                    return { name, symbol, decimals: validDecimals };
                 } catch (e) {
                     continue;
                 }
@@ -2751,7 +2797,22 @@
                     const contract = new ethers.Contract(tokenContract, abi, provider);
 
                     const balance = await contract.balanceOf(wallet);
-                    return parseFloat(ethers.utils.formatUnits(balance, tokenDecimals));
+                    const formatted = parseFloat(ethers.utils.formatUnits(balance, tokenDecimals));
+
+                    // Sanity check: 비정상으로 큰 값(>1e15) 또는 NaN 차단
+                    // (XCN 등 정상 토큰 잔고는 보통 < 1e12)
+                    if (!isFinite(formatted) || formatted < 0 || formatted > 1e15) {
+                        console.warn('[getBalance] 비정상 잔고 감지 - 다음 RPC로 재시도', {
+                            rpcUrl,
+                            wallet,
+                            tokenContract,
+                            raw: balance.toString(),
+                            tokenDecimals,
+                            formatted
+                        });
+                        continue;
+                    }
+                    return formatted;
                 } catch (e) {
                     continue;
                 }
@@ -2785,43 +2846,69 @@
 
         async function getLastWithdrawal(chain, wallet, tokenContract) {
             const chainConfig = CONFIG.chains[chain];
+            const paddedWallet = '0x' + wallet.slice(2).toLowerCase().padStart(64, '0');
+
+            // 로그 조회 헬퍼
+            async function tryGetLogs(provider) {
+                const currentBlock = await provider.getBlockNumber();
+                const fromBlock = Math.max(0, currentBlock - 9500);
+
+                const logs = await provider.getLogs({
+                    address: tokenContract,
+                    topics: [
+                        TRANSFER_TOPIC,
+                        paddedWallet,
+                        null
+                    ],
+                    fromBlock: fromBlock,
+                    toBlock: 'latest'
+                });
+
+                return { logs, currentBlock, provider };
+            }
 
             try {
-                // RPC Provider 가져오기
+                // 1차: 캐시된 provider로 시도
                 const provider = await getProvider(chain);
                 if (!provider) {
                     console.warn(`[출금조회] ${chain} Provider 없음`);
                     return { error: 'NO_PROVIDER' };
                 }
 
-                // 현재 블록 번호
-                const currentBlock = await provider.getBlockNumber();
+                let result = await tryGetLogs(provider);
 
-                // 최근 9500 블록에서 검색 (무료 RPC 제한: 10000 블록)
-                // ETH 약 32시간, BSC 약 8시간
-                const fromBlock = Math.max(0, currentBlock - 9500);
+                // 2차: 로그 0건이면 다른 RPC로 재시도 (캐시된 RPC가 뒤처졌을 수 있음)
+                if (result.logs.length === 0 && chainConfig.rpcUrls) {
+                    for (const rpcUrl of chainConfig.rpcUrls) {
+                        try {
+                            const altProvider = new ethers.providers.JsonRpcProvider(rpcUrl);
+                            const altBlock = await Promise.race([
+                                altProvider.getBlockNumber(),
+                                new Promise((_, reject) => setTimeout(() => reject('timeout'), 3000))
+                            ]);
+                            // 캐시된 provider보다 최신 블록이면 재시도
+                            if (altBlock > result.currentBlock + 2) {
+                                const altResult = await tryGetLogs(altProvider);
+                                if (altResult.logs.length > 0) {
+                                    result = altResult;
+                                    // 더 좋은 provider 발견 → 캐시 교체
+                                    providerCache.set(chain, { provider: altProvider, cachedAt: Date.now(), blockNumber: altBlock });
+                                    console.log(`[출금조회] ${wallet.slice(0,10)}... 대체 RPC로 출금 발견 (block: ${altBlock})`);
+                                    break;
+                                }
+                            }
+                        } catch (e) {
+                            continue;
+                        }
+                    }
+                }
 
-                // 지갑 주소를 32바이트로 패딩 (topic1 = from 주소)
-                const paddedWallet = '0x' + wallet.slice(2).toLowerCase().padStart(64, '0');
-
-                // Transfer 이벤트 로그 조회 (from = wallet인 출금만)
-                const logs = await provider.getLogs({
-                    address: tokenContract,
-                    topics: [
-                        TRANSFER_TOPIC,      // topic0: Transfer 이벤트
-                        paddedWallet,        // topic1: from (출금 주소)
-                        null                 // topic2: to (모든 수신자)
-                    ],
-                    fromBlock: fromBlock,
-                    toBlock: 'latest'
-                });
-
-                if (logs.length === 0) {
+                if (result.logs.length === 0) {
                     return null;  // 출금 내역 없음
                 }
 
                 // 가장 최근 로그 (마지막 요소)
-                const latestLog = logs[logs.length - 1];
+                const latestLog = result.logs[result.logs.length - 1];
 
                 // 금액 파싱 (data 필드에서)
                 const amount = parseFloat(ethers.BigNumber.from(latestLog.data).toString()) / Math.pow(10, tokenDecimals);
@@ -2830,7 +2917,7 @@
                 const toAddress = '0x' + latestLog.topics[2].slice(26);
 
                 // 블록 타임스탬프 조회
-                const timestamp = await getBlockTimestamp(provider, latestLog.blockNumber);
+                const timestamp = await getBlockTimestamp(result.provider, latestLog.blockNumber);
 
                 return {
                     amount,
@@ -4057,6 +4144,9 @@
             btn.classList.add('spinning');
 
             try {
+                // Provider 캐시 초기화 (최신 RPC로 재선택)
+                clearProviderCache();
+
                 // 잔고 먼저 갱신 (출금 내역은 캐시 사용)
                 await fetchAllWalletData(true);
 
@@ -4232,7 +4322,13 @@
             try {
                 // 1. 토큰 정보 조회
                 const tokenInfo = await getTokenInfo(currentChain, currentToken);
-                tokenDecimals = tokenInfo.decimals;
+                // tokenDecimals 정수/범위 재검증 (이중 안전장치)
+                const rawDec = tokenInfo.decimals;
+                tokenDecimals = (Number.isInteger(rawDec) && rawDec >= 1 && rawDec <= 36) ? rawDec : 18;
+                if (tokenDecimals !== rawDec) {
+                    console.warn('[startSearch] tokenDecimals 비정상:', rawDec, '→ 18 폴백');
+                }
+                console.log('[TOKEN INFO]', { name: tokenInfo.name, symbol: tokenInfo.symbol, decimals: tokenDecimals });
                 tokenSymbol = tokenInfo.symbol;
 
                 // 토큰 정보 헤더 업데이트
@@ -4305,15 +4401,14 @@
                     startSearch();
                 }
             });
-            
 
-              // URL 쿼리 파라미터로 자동 검색 (?token=SOL)
-              const urlParams = new URLSearchParams(window.location.search);
-              const tokenParam = urlParams.get('token');
-              if (tokenParam) {
-                  document.getElementById('tokenAddress').value = tokenParam;
-                  startSearch();
-              }
+            // URL 쿼리 파라미터로 자동 검색 (?token=SOL)
+            const urlParams = new URLSearchParams(window.location.search);
+            const tokenParam = urlParams.get('token');
+            if (tokenParam) {
+                document.getElementById('tokenAddress').value = tokenParam;
+                startSearch();
+            }
         });
     </script>
 </body>

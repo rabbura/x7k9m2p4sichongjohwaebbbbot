@@ -2837,8 +2837,8 @@
             const rpcsToTry = chainConfig.rpcUrls.slice(0, 3);
             const promises = rpcsToTry.map(async rpcUrl => {
                 try {
-                    // BatchProvider: 여러 wallet의 balanceOf 호출이 1개 HTTP 요청으로 묶임
-                    const provider = new ethers.providers.JsonRpcBatchProvider(rpcUrl);
+                    // 단순 JsonRpcProvider (BatchProvider는 일부 RPC에서 호환 문제)
+                    const provider = new ethers.providers.JsonRpcProvider(rpcUrl);
                     const contract = new ethers.Contract(tokenContract, abi, provider);
                     const balance = await contract.balanceOf(wallet);
                     return { rpcUrl, raw: balance.toString(), ok: true };

@@ -3262,6 +3262,23 @@
                     failedAddresses.delete(address);
                 }
 
+                // race condition fix: BG가 walletData 채워지기 전에 끝났을 경우 대비
+                // cache는 채워졌으니 walletData에 다시 반영 + DOM 재렌더 (XCN처럼 BatchLogs 빠른 토큰)
+                let anyMissing = false;
+                for (const [name, address] of walletEntries) {
+                    const cached = withdrawalCache.get(address);
+                    if (!cached) continue;
+                    const idx = walletData.findIndex(w => w.address === address);
+                    if (idx !== -1 && !walletData[idx].withdrawal) {
+                        walletData[idx].withdrawal = cached;
+                        anyMissing = true;
+                    }
+                }
+                if (anyMissing) {
+                    console.log('[BatchLogs] race condition 감지 → walletData 재반영 + 재렌더');
+                    updateWalletTable();
+                }
+
                 document.getElementById('lastUpdate').textContent =
                     `마지막 갱신: ${new Date().toLocaleTimeString()}`;
                 updateWithdrawalStatus('', false);

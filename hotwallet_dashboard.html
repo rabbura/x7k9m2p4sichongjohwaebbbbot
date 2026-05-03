@@ -2237,8 +2237,7 @@
                     rpcUrls: [
                         "https://rpc.ankr.com/eth",
                         "https://ethereum-rpc.publicnode.com",
-                        "https://1rpc.io/eth",
-                        "https://eth.merkle.io"
+                        "https://1rpc.io/eth"
                     ],
                     coingeckoId: "ethereum",
                     wallets: {
@@ -4205,6 +4204,245 @@
             realtimePriceSystem.stopWebSocketStreams();
         }
 
+        // ===== 시간 범위 출금 분석 =====
+        function toggleRangeAnalysis() {
+            const content = document.getElementById('rangeAnalysisContent');
+            const toggle = document.getElementById('rangeAnalysisToggle');
+            if (!content || !toggle) return;
+            const isHidden = content.style.display === 'none';
+            content.style.display = isHidden ? 'block' : 'none';
+            toggle.textContent = isHidden ? '▲' : '▼';
+        }
+
+        function populateRangeWalletList() {
+            const list = document.getElementById('rangeWalletList');
+            if (!list) return;
+            const cexWallets = walletData.filter(w => w.type === 'CEX');
+            if (cexWallets.length === 0) {
+                list.innerHTML = '<span style="color: var(--text-muted); font-size: 0.85rem;">조회된 지갑이 없습니다</span>';
+                return;
+            }
+            list.innerHTML = cexWallets.map(w => {
+                const cleanName = w.name.replace('(거의메인)', '').replace('(메인추정)', '').replace('(콜드추정)', '');
+                const star = w.isMain ? '<span style="color: var(--accent-yellow); font-size: 0.7rem;">★</span>' : '';
+                return `
+                    <label style="display: flex; align-items: center; gap: 6px; padding: 4px 6px; cursor: pointer; font-size: 0.8rem; color: var(--text-primary);">
+                        <input type="checkbox" class="range-wallet-cb" data-address="${w.address}" data-name="${w.name.replace(/"/g, '&quot;')}" ${w.isMain ? 'checked' : ''}>
+                        <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${w.name}">${cleanName} ${star}</span>
+                    </label>
+                `;
+            }).join('');
+            updateRangeSelectedCount();
+            list.querySelectorAll('.range-wallet-cb').forEach(cb => {
+                cb.addEventListener('change', updateRangeSelectedCount);
+            });
+        }
+
+        function updateRangeSelectedCount() {
+            const checked = document.querySelectorAll('.range-wallet-cb:checked').length;
+            const total = document.querySelectorAll('.range-wallet-cb').length;
+            const el = document.getElementById('rangeWalletCount');
+            if (el) el.textContent = `${checked}/${total}개 선택`;
+        }
+
+        function rangeSelectWallets(mode) {
+            const checkboxes = document.querySelectorAll('.range-wallet-cb');
+            checkboxes.forEach(cb => {
+                if (mode === 'all' || mode === 'cex') {
+                    cb.checked = true;
+                } else if (mode === 'none') {
+                    cb.checked = false;
+                } else if (mode === 'main') {
+                    const name = cb.dataset.name || '';
+                    cb.checked = name.includes('(거의메인)') || name.includes('(메인추정)');
+                }
+            });
+            updateRangeSelectedCount();
+        }
+
+        async function runRangeAnalysis() {
+            const startInput = document.getElementById('rangeStartTime').value;
+            const endInput = document.getElementById('rangeEndTime').value;
+            if (!startInput || !endInput) {
+                alert('시작/종료 시간을 모두 입력해주세요.');
+                return;
+            }
+            const startTs = Math.floor(new Date(startInput).getTime() / 1000);
+            const endTs = Math.floor(new Date(endInput).getTime() / 1000);
+            if (startTs >= endTs) {
+                alert('종료 시간이 시작 시간보다 나중이어야 합니다.');
+                return;
+            }
+            const checkedBoxes = document.querySelectorAll('.range-wallet-cb:checked');
+            if (checkedBoxes.length === 0) {
+                alert('지갑을 1개 이상 선택해주세요.');
+                return;
+            }
+            const selectedWallets = Array.from(checkedBoxes).map(cb => ({
+                address: cb.dataset.address,
+                name: cb.dataset.name
+            }));
+            const btn = document.getElementById('rangeAnalysisBtn');
+            btn.disabled = true;
+            btn.querySelector('span:last-child').textContent = '조회 중...';
+            const resultEl = document.getElementById('rangeAnalysisResult');
+            resultEl.style.display = 'block';
+            resultEl.innerHTML = `<div style="padding: 16px; color: var(--text-secondary);">🔍 ${selectedWallets.length}개 지갑 분석 중... (시간 범위가 길수록 오래 걸림)</div>`;
+            try {
+                const result = await analyzeWithdrawalsByRange(startTs, endTs, selectedWallets);
+                renderRangeAnalysisResult(result, startTs, endTs);
+            } catch (e) {
+                console.error('[range analysis]', e);
+                resultEl.innerHTML = `<div style="padding: 16px; color: var(--accent-red);">❌ 오류: ${e.message}</div>`;
+            } finally {
+                btn.disabled = false;
+                btn.querySelector('span:last-child').textContent = '조회';
+            }
+        }
+
+        async function analyzeWithdrawalsByRange(startTs, endTs, wallets) {
+            const provider = await getProvider(currentChain);
+            if (!provider) throw new Error('RPC Provider 없음');
+            const currentBlock = await provider.getBlockNumber();
+            const now = Math.floor(Date.now() / 1000);
+            const blockTime = 12;
+            const blocksAgo = Math.ceil((now - startTs) / blockTime);
+            const fromBlock = Math.max(0, currentBlock - blocksAgo - 200);
+            const TRANSFER_TOPIC_LOCAL = '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef';
+
+            // wallet별 병렬 조회
+            const promises = wallets.map(async (wallet) => {
+                const paddedWallet = '0x' + wallet.address.slice(2).toLowerCase().padStart(64, '0');
+                try {
+                    const logs = await provider.getLogs({
+                        address: currentToken,
+                        topics: [TRANSFER_TOPIC_LOCAL, paddedWallet, null],
+                        fromBlock: fromBlock,
+                        toBlock: 'latest'
+                    });
+                    return { wallet, logs };
+                } catch (e) {
+                    console.warn(`[range] ${wallet.name} 조회 실패:`, e.message);
+                    return { wallet, logs: [] };
+                }
+            });
+            const results = await Promise.allSettled(promises);
+
+            const walletStats = {};
+            let grandTotal = 0;
+            let grandCount = 0;
+            const allWithdrawals = [];
+
+            for (const r of results) {
+                if (r.status !== 'fulfilled') continue;
+                const { wallet, logs } = r.value;
+                walletStats[wallet.address] = { name: wallet.name, totalAmount: 0, count: 0 };
+                for (const log of logs) {
+                    const ts = await getBlockTimestamp(provider, log.blockNumber);
+                    if (ts < startTs || ts > endTs) continue;
+                    const amount = parseFloat(ethers.BigNumber.from(log.data).toString()) / Math.pow(10, tokenDecimals);
+                    const toAddr = '0x' + log.topics[2].slice(26);
+                    walletStats[wallet.address].totalAmount += amount;
+                    walletStats[wallet.address].count++;
+                    grandTotal += amount;
+                    grandCount++;
+                    allWithdrawals.push({ wallet: wallet.name, amount, to: toAddr, ts, hash: log.transactionHash });
+                }
+            }
+
+            allWithdrawals.sort((a, b) => b.amount - a.amount);
+            const topWithdrawals = allWithdrawals.slice(0, 5);
+            const sortedWallets = Object.entries(walletStats)
+                .filter(([_, s]) => s.totalAmount > 0)
+                .sort((a, b) => b[1].totalAmount - a[1].totalAmount);
+
+            return { grandTotal, grandCount, sortedWallets, topWithdrawals };
+        }
+
+        function renderRangeAnalysisResult(result, startTs, endTs) {
+            const resultEl = document.getElementById('rangeAnalysisResult');
+            const { grandTotal, grandCount, sortedWallets, topWithdrawals } = result;
+            const startStr = new Date(startTs * 1000).toLocaleString('ko-KR');
+            const endStr = new Date(endTs * 1000).toLocaleString('ko-KR');
+            const durationHours = ((endTs - startTs) / 3600).toFixed(1);
+            const totalUsd = grandTotal * currentPrice;
+
+            let html = `
+                <div style="padding: 16px; background: var(--bg-tertiary); border-radius: 8px; margin-top: 12px;">
+                    <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; margin-bottom: 16px;">
+                        <div>
+                            <div style="font-size: 0.8rem; color: var(--text-muted);">기간</div>
+                            <div style="font-size: 0.95rem; font-weight: 600;">${durationHours}시간</div>
+                            <div style="font-size: 0.7rem; color: var(--text-muted); margin-top: 2px;">${startStr} ~ ${endStr}</div>
+                        </div>
+                        <div>
+                            <div style="font-size: 0.8rem; color: var(--text-muted);">총 출금</div>
+                            <div style="font-size: 1.4rem; font-weight: 700; font-family: 'Roboto Mono', monospace;">${formatBalance(grandTotal)}</div>
+                            <div style="font-size: 0.85rem; color: var(--accent-green); font-weight: 600;">${formatUsdFull(totalUsd)}</div>
+                        </div>
+                        <div>
+                            <div style="font-size: 0.8rem; color: var(--text-muted);">거래 건수</div>
+                            <div style="font-size: 1.4rem; font-weight: 700;">${grandCount}건</div>
+                        </div>
+                    </div>
+            `;
+
+            if (grandCount === 0) {
+                html += `<div style="padding: 16px; color: var(--text-muted); text-align: center;">선택 기간 내 출금 내역 없음</div></div>`;
+                resultEl.innerHTML = html;
+                return;
+            }
+
+            if (sortedWallets.length > 0) {
+                html += `
+                    <div style="margin-top: 16px;">
+                        <div style="font-size: 0.85rem; font-weight: 600; color: var(--text-secondary); margin-bottom: 8px;">📊 지갑별 합계</div>
+                        <table style="width: 100%; font-size: 0.8rem; border-collapse: collapse;">
+                            <thead>
+                                <tr style="border-bottom: 1px solid var(--border-color);">
+                                    <th style="text-align: left; padding: 6px;">지갑</th>
+                                    <th style="text-align: right; padding: 6px;">출금량</th>
+                                    <th style="text-align: right; padding: 6px;">USD</th>
+                                    <th style="text-align: right; padding: 6px;">건수</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${sortedWallets.slice(0, 20).map(([addr, s], idx) => {
+                                    const medal = idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : '';
+                                    const cleanName = s.name.replace('(거의메인)', '').replace('(메인추정)', '').replace('(콜드추정)', '');
+                                    return `
+                                        <tr style="border-bottom: 1px solid var(--border-color);">
+                                            <td style="padding: 6px;">${medal} ${cleanName}</td>
+                                            <td style="text-align: right; padding: 6px; font-family: 'Roboto Mono', monospace;">${formatBalance(s.totalAmount)}</td>
+                                            <td style="text-align: right; padding: 6px; color: var(--accent-green);">${formatUsdTable(s.totalAmount * currentPrice)}</td>
+                                            <td style="text-align: right; padding: 6px;">${s.count}</td>
+                                        </tr>
+                                    `;
+                                }).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                `;
+            }
+
+            if (topWithdrawals.length > 0) {
+                html += `
+                    <div style="margin-top: 16px;">
+                        <div style="font-size: 0.85rem; font-weight: 600; color: var(--text-secondary); margin-bottom: 8px;">🔥 가장 큰 출금 Top 5</div>
+                        ${topWithdrawals.map((w, idx) => `
+                            <div style="display: flex; justify-content: space-between; align-items: center; padding: 6px; border-bottom: 1px solid var(--border-color); font-size: 0.8rem;">
+                                <span>${idx+1}. ${new Date(w.ts*1000).toLocaleString('ko-KR', {month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit'})} <strong>${w.wallet.replace('(거의메인)', '').replace('(메인추정)', '').replace('(콜드추정)', '')}</strong></span>
+                                <span style="font-family: 'Roboto Mono', monospace;">${formatBalance(w.amount)} <span style="color: var(--accent-green);">(${formatUsdTable(w.amount * currentPrice)})</span></span>
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+            }
+
+            html += '</div>';
+            resultEl.innerHTML = html;
+        }
+
         // ===== 자동 갱신 =====
         function toggleAutoRefresh() {
             autoRefreshEnabled = !autoRefreshEnabled;
@@ -4486,6 +4724,9 @@
 
                 // 7. 자동 갱신 시작
                 startAutoRefresh();
+
+                // 8. 시간범위 분석 wallet 리스트 채우기
+                populateRangeWalletList();
 
             } catch (e) {
                 console.error('Search error:', e);

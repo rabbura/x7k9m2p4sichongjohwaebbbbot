@@ -3244,9 +3244,6 @@
                     if (withdrawal && !withdrawal.error) {
                         withdrawalCell.textContent = formatUsdTable(withdrawal.amount * currentPrice);
                         targetCell.innerHTML = `<span style="color: var(--text-secondary)">${shortenAddress(withdrawal.to)}</span>`;
-                    } else if (withdrawal?.error) {
-                        withdrawalCell.textContent = 'ERR';
-                        targetCell.textContent = '-';
                     } else {
                         withdrawalCell.textContent = '-';
                         targetCell.textContent = '-';
@@ -3343,7 +3340,7 @@
                     if (withdrawalCell) {
                         const withdrawalUsd = wallet.withdrawal && !wallet.withdrawal.error
                             ? formatUsdTable(wallet.withdrawal.amount * currentPrice)
-                            : wallet.withdrawal?.error ? 'ERR' : '-';
+                            : '-';
                         withdrawalCell.textContent = withdrawalUsd;
                     }
 
@@ -3406,7 +3403,7 @@
                     // 출금 금액 (달러) - DEX는 출금 내역 없음
                     const withdrawalUsd = isDex ? '-' : (wallet.withdrawal && !wallet.withdrawal.error
                         ? formatUsdTable(wallet.withdrawal.amount * currentPrice)
-                        : wallet.withdrawal?.error ? 'ERR' : '-');
+                        : '-');
 
                     // 출금 대상 (닉네임 우선, 없으면 주소 축약)
                     let withdrawalToDisplay = '-';

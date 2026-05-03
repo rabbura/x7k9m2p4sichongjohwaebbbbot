@@ -2905,8 +2905,8 @@
             // 로그 조회 헬퍼
             async function tryGetLogs(provider) {
                 const currentBlock = await provider.getBlockNumber();
-                // 5000 블록(~17시간 분량)으로 축소 - 응답 크기 ↓ 속도 ↑
-                const fromBlock = Math.max(0, currentBlock - 5000);
+                // 3000 블록(~10시간 분량) - 응답 크기 더 ↓ 속도 더 ↑
+                const fromBlock = Math.max(0, currentBlock - 3000);
 
                 const logs = await provider.getLogs({
                     address: tokenContract,
@@ -3063,9 +3063,9 @@
 
             const modeText = incrementalUpdate ? '증분 갱신' : '전체 조회';
 
-            // RPC 방식은 rate limit이 느슨함 - 12개씩 병렬 처리 (속도 ↑)
-            const batchSize = 12;
-            const delay = 100;
+            // 공격적 병렬화 - 25개씩 (49 wallet → 2배치로 끝)
+            const batchSize = 25;
+            const delay = 0;
 
             // 증분 갱신 모드에서 이전에 실패한 주소 우선 처리
             let priorityEntries = [];

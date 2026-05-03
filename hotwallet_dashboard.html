@@ -2827,6 +2827,71 @@
         // 이전 잔고 캐시 (자동갱신 시 변동 검증용)
         const balanceCache = new Map();  // wallet -> formatted balance
 
+        // 🚀 Multicall3 - 모든 EVM 체인에 같은 주소
+        const MULTICALL3_ADDRESS = '0xcA11bde05977b3631167028862bE2a173976CA11';
+        const MULTICALL3_ABI = [
+            'function aggregate3((address target, bool allowFailure, bytes callData)[] calls) view returns ((bool success, bytes returnData)[])'
+        ];
+        const ERC20_BALANCE_IFACE = new ethers.utils.Interface(['function balanceOf(address) view returns (uint256)']);
+
+        // 49 wallet의 balanceOf를 1번 호출로 묶음 (Multicall)
+        async function fetchAllBalancesMulticall(walletEntries) {
+            const chainConfig = CONFIG.chains[currentChain];
+            const calls = walletEntries.map(([_, address]) => ({
+                target: currentToken,
+                allowFailure: true,
+                callData: ERC20_BALANCE_IFACE.encodeFunctionData('balanceOf', [address])
+            }));
+
+            // 모든 RPC 동시 시도 → 가장 빠른 응답
+            const t0 = Date.now();
+            const racePromises = chainConfig.rpcUrls.map(async (rpcUrl) => {
+                const p = new ethers.providers.JsonRpcProvider(rpcUrl);
+                const multicall = new ethers.Contract(MULTICALL3_ADDRESS, MULTICALL3_ABI, p);
+                const results = await multicall.callStatic.aggregate3(calls);
+                return { results, rpcUrl };
+            });
+
+            try {
+                const winner = await Promise.race([
+                    Promise.any(racePromises),
+                    new Promise((_, rej) => setTimeout(() => rej(new Error('multicall timeout')), 8000))
+                ]);
+                console.log(`[Multicall] ${walletEntries.length}개 잔고 (${winner.rpcUrl}, ${Date.now()-t0}ms)`);
+
+                const balances = {};
+                walletEntries.forEach(([_, address], i) => {
+                    const r = winner.results[i];
+                    if (r.success && r.returnData !== '0x') {
+                        try {
+                            const [bn] = ERC20_BALANCE_IFACE.decodeFunctionResult('balanceOf', r.returnData);
+                            const formatted = parseFloat(ethers.utils.formatUnits(bn, tokenDecimals));
+
+                            // sanity check
+                            if (!isFinite(formatted) || formatted < 0 || formatted > 1e15) {
+                                balances[address] = balanceCache.get(address) || 0;
+                            } else if (currentPrice > 0 && formatted * currentPrice > 1e9) {
+                                balances[address] = balanceCache.get(address) || 0;
+                            } else if (circulatingSupply > 0 && formatted > circulatingSupply * 0.5) {
+                                balances[address] = balanceCache.get(address) || 0;
+                            } else {
+                                balances[address] = formatted;
+                                balanceCache.set(address, formatted);
+                            }
+                        } catch (e) {
+                            balances[address] = balanceCache.get(address) || 0;
+                        }
+                    } else {
+                        balances[address] = balanceCache.get(address) || 0;
+                    }
+                });
+                return balances;
+            } catch (e) {
+                console.warn('[Multicall] 실패, 개별 조회로 폴백:', e.message);
+                return null;
+            }
+        }
+
         // ===== 잔고 조회 (단일 RPC + sanity check 4중) =====
         async function getBalance(chain, wallet, tokenContract) {
             const chainConfig = CONFIG.chains[chain];
@@ -2994,18 +3059,26 @@
             // 임시 배열에 새 데이터 수집 (기존 walletData 유지하면서)
             const newWalletData = [];
 
-            // 병렬로 잔고 조회 (빠름)
-            const balancePromises = walletEntries.map(async ([name, address]) => {
+            // 🚀 Multicall 먼저 시도 (49 호출 → 1 호출)
+            let multicallBalances = null;
+            try {
+                multicallBalances = await fetchAllBalancesMulticall(walletEntries);
+            } catch (e) {
+                console.warn('[Multicall] 예외 발생, 폴백:', e.message);
+            }
+
+            // Multicall 실패 시 개별 조회로 폴백
+            const balancePromises = multicallBalances ? null : walletEntries.map(async ([name, address]) => {
                 const balance = await getBalance(currentChain, address, currentToken);
                 return { name, address, balance };
             });
-
-            const balanceResults = await Promise.allSettled(balancePromises);
+            const balanceResults = balancePromises ? await Promise.allSettled(balancePromises) : null;
 
             // 잔고 결과로 임시 배열에 추가 (출금 내역은 캐시에서 가져오거나 null)
             walletEntries.forEach(([name, address], index) => {
-                const result = balanceResults[index];
-                const balance = result.status === 'fulfilled' ? result.value.balance : 0;
+                const balance = multicallBalances
+                    ? (multicallBalances[address] || 0)
+                    : (balanceResults[index].status === 'fulfilled' ? balanceResults[index].value.balance : 0);
                 const usdValue = balance * currentPrice;
 
                 newWalletData.push({
@@ -4734,6 +4807,9 @@
             withdrawalCache.clear();
             balanceCache.clear();  // 잔고 캐시도 초기화 (다른 토큰 영향 방지)
             walletData = [];  // DEX 데이터 포함 전체 초기화
+            currentPrice = 0;  // 이전 토큰 가격 오염 방지 (PEPE 검색 시 AAVE 가격 남는 버그)
+            circulatingSupply = 0;
+            totalSupply = 0;
 
             try {
                 // 1. 토큰 정보 조회
@@ -4841,5 +4917,6 @@
     </script>
 </body>
 </html>
+
 
 

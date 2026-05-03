@@ -1120,6 +1120,32 @@
             }
         }
 
+        /* 모바일 시간 범위 출금 분석 카드 짤림 fix */
+        @media (max-width: 768px) {
+            #rangeAnalysisContent > div:first-child {
+                grid-template-columns: 1fr !important;
+                gap: 8px !important;
+            }
+            #rangeWalletList {
+                grid-template-columns: 1fr !important;
+                max-height: 250px !important;
+            }
+            #rangeAnalysisContent input[type="datetime-local"] {
+                width: 100%;
+                box-sizing: border-box;
+            }
+            #rangeAnalysisBtn {
+                width: 100%;
+            }
+            #rangeAnalysisResult {
+                font-size: 0.8rem;
+            }
+            #rangeAnalysisResult > div > div:first-child {
+                grid-template-columns: 1fr !important;
+                gap: 8px !important;
+            }
+        }
+
         /* 모바일 테이블 최적화 (768px 이하) */
         @media (max-width: 768px) {
             /* 테이블 스크롤 없이 화면에 맞추기 */
@@ -4903,12 +4929,12 @@
                 updateMarketUI(marketData);
 
                 updateProgress(30);
-                document.getElementById('loadingText').textContent = '지갑 잔고 + DEX 조회 중...';
+                document.getElementById('loadingText').textContent = '지갑 잔고 조회 중...';
 
                 // 3. 지갑 데이터 + DEX 병렬 조회
                 const includeDex = document.getElementById('includeDex').checked;
 
-                // DEX 조회 Promise (체크 시에만)
+                // DEX 조회 Promise (체크 시에만, 백그라운드에서 진행)
                 const dexPromise = includeDex ? fetchDexLiquidityData() : Promise.resolve(null);
 
                 // 잔고 + 출금 동시 시작 (출금이 batch라 잔고와 병렬로 가능 - 속도 ↑)
@@ -4918,21 +4944,25 @@
                 }
                 await fetchAllWalletData(true, true);  // skipWithdrawal=true (이미 위에서 시작), skipSort=true
 
-                // DEX 데이터 대기 및 추가
-                if (includeDex) {
-                    const dexPools = await dexPromise;
-                    if (dexPools && dexPools.length > 0) {
-                        // DEX 풀을 walletData에 추가
-                        dexPools.forEach(pool => walletData.push(pool));
-                    }
-                } else {
+                if (!includeDex) {
                     document.getElementById('dexLoadingBox').style.display = 'none';
                     document.getElementById('dexVolumeBox').style.display = 'none';
                 }
 
-                // 4. CEX + DEX 한 번에 정렬 후 테이블 표시
+                // 4. 잔고 먼저 표시 (DEX 안 기다림 - 체감 속도 ↑)
                 sortTable('usd', true);
                 hideLoading();
+
+                // 5. DEX는 백그라운드에서 추가 (도착 시 재정렬)
+                if (includeDex) {
+                    dexPromise.then(dexPools => {
+                        if (dexPools && dexPools.length > 0) {
+                            dexPools.forEach(pool => walletData.push(pool));
+                            sortTable('usd', true);  // DEX 추가 후 재정렬
+                            console.log(`[DEX] ${dexPools.length}개 풀 추가됨`);
+                        }
+                    }).catch(e => console.warn('[DEX] 조회 실패:', e.message));
+                }
 
                 // 5. UI 표시
                 document.getElementById('emptyState').style.display = 'none';

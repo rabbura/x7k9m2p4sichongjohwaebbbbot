@@ -2846,7 +2846,23 @@
                 return balanceCache.get(wallet) || 0;
             }
 
-            // Sanity check 2: 이전 잔고 대비 100배 이상 변동 의심
+            // Sanity check 2: USD 가치 $1B 초과 차단 (단일 wallet 비현실적)
+            if (currentPrice > 0 && formatted * currentPrice > 1e9) {
+                console.warn('[getBalance] USD 가치 $1B 초과 차단', {
+                    wallet, formatted, currentPrice, usd: formatted * currentPrice
+                });
+                return balanceCache.get(wallet) || 0;
+            }
+
+            // Sanity check 3: 토큰 유통량 50% 초과 차단
+            if (circulatingSupply > 0 && formatted > circulatingSupply * 0.5) {
+                console.warn('[getBalance] 잔고가 유통량 50% 초과 차단', {
+                    wallet, formatted, circulatingSupply
+                });
+                return balanceCache.get(wallet) || 0;
+            }
+
+            // Sanity check 4: 이전 잔고 대비 100배 이상 변동 의심
             const previous = balanceCache.get(wallet);
             if (previous !== undefined && previous > 0 && formatted > previous * 100) {
                 console.warn('[getBalance] 이전 대비 100배 이상 증가 - 이전 값 유지', {
@@ -3545,14 +3561,27 @@
                     const tokenLiquidityUsd = liquidity / 2;
                     let tokenBalance = priceUsd > 0 ? tokenLiquidityUsd / priceUsd : 0;
 
-                    // Sanity check: priceUsd가 너무 작아서 잔고 폭주(>1e15) 시 차단
+                    // Sanity check 1: 절대값 (>1e15) 또는 NaN
                     if (!isFinite(tokenBalance) || tokenBalance > 1e15) {
-                        console.warn('[DEX] 비정상 잔고 차단', {
-                            dex: dexName,
-                            pair: `${quoteSymbol} 페어`,
-                            priceUsd,
-                            liquidity,
-                            tokenBalance
+                        console.warn('[DEX] 비정상 잔고 차단(>1e15)', {
+                            dex: dexName, pair: `${quoteSymbol} 페어`, priceUsd, liquidity, tokenBalance
+                        });
+                        tokenBalance = 0;
+                    }
+
+                    // Sanity check 2: USD 가치 $1B 초과 차단
+                    if (tokenBalance > 0 && currentPrice > 0 && tokenBalance * currentPrice > 1e9) {
+                        console.warn('[DEX] USD $1B 초과 차단', {
+                            dex: dexName, pair: `${quoteSymbol} 페어`, tokenBalance,
+                            usd: tokenBalance * currentPrice
+                        });
+                        tokenBalance = 0;
+                    }
+
+                    // Sanity check 3: 토큰 유통량 50% 초과 차단
+                    if (tokenBalance > 0 && circulatingSupply > 0 && tokenBalance > circulatingSupply * 0.5) {
+                        console.warn('[DEX] 잔고가 유통량 50% 초과 차단', {
+                            dex: dexName, pair: `${quoteSymbol} 페어`, tokenBalance, circulatingSupply
                         });
                         tokenBalance = 0;
                     }

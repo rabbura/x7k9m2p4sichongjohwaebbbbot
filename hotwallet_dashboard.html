@@ -1535,7 +1535,7 @@
         <header class="header">
             <div class="header-title">
                 <span style="font-size: 2rem;">🔥</span>
-                <h1>핫월렛 토큰 대시보드</h1>
+                <h1>핫월렛 토큰 대시보드 <span style="font-size:0.7em; color:#555; font-weight:normal;">by 라부라</span></h1>
             </div>
             <div class="header-status">
                 <div class="status-item">
@@ -2194,8 +2194,6 @@
                     explorer: "https://etherscan.io",
                     explorerApi: "https://api.etherscan.io/v2/api",
                     rpcUrls: [
-                        "https://cloudflare-eth.com",
-                        "https://eth.llamarpc.com",
                         "https://eth.drpc.org",
                         "https://rpc.ankr.com/eth",
                         "https://ethereum-rpc.publicnode.com",
@@ -3505,8 +3503,19 @@
 
                     // 기존 봇과 동일한 계산: (유동성의 50%) / 가격 = 토큰 수량
                     const tokenLiquidityUsd = liquidity / 2;
-                    const tokenBalance = priceUsd > 0 ? tokenLiquidityUsd / priceUsd : 0;
+                    let tokenBalance = priceUsd > 0 ? tokenLiquidityUsd / priceUsd : 0;
 
+                    // Sanity check: priceUsd가 너무 작아서 잔고 폭주(>1e15) 시 차단
+                    if (!isFinite(tokenBalance) || tokenBalance > 1e15) {
+                        console.warn('[DEX] 비정상 잔고 차단', {
+                            dex: dexName,
+                            pair: `${quoteSymbol} 페어`,
+                            priceUsd,
+                            liquidity,
+                            tokenBalance
+                        });
+                        tokenBalance = 0;
+                    }
 
                     pools.push({
                         name: `🏊 ${dexName} (${quoteSymbol} 페어)`,
@@ -4329,7 +4338,12 @@
                     console.warn('[startSearch] tokenDecimals 비정상:', rawDec, '→ 18 폴백');
                 }
                 console.log('[TOKEN INFO]', { name: tokenInfo.name, symbol: tokenInfo.symbol, decimals: tokenDecimals });
-                tokenSymbol = tokenInfo.symbol;
+                // tokenSymbol 보호: getTokenInfo가 UNKNOWN 반환해도 selectToken에서 받은 값 유지
+                if (tokenInfo.symbol && tokenInfo.symbol !== 'UNKNOWN') {
+                    tokenSymbol = tokenInfo.symbol;
+                } else if (!tokenSymbol || tokenSymbol === 'UNKNOWN') {
+                    tokenSymbol = tokenInfo.symbol || 'UNKNOWN';
+                }
 
                 // 토큰 정보 헤더 업데이트
                 updateTokenInfoHeader(tokenInfo.name || tokenSymbol, tokenSymbol, currentToken);
@@ -4413,4 +4427,5 @@
     </script>
 </body>
 </html>
+
 

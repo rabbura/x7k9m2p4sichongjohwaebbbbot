@@ -4305,12 +4305,17 @@
             if (!provider) throw new Error('RPC Provider 없음');
             const currentBlock = await provider.getBlockNumber();
             const now = Math.floor(Date.now() / 1000);
-            const blockTime = 12;
-            const blocksAgo = Math.ceil((now - startTs) / blockTime);
-            const fromBlock = Math.max(0, currentBlock - blocksAgo - 200);
+            const blockTime = 12;  // ETH 평균 블록 시간
+
+            // 가속화: 시작/종료 블록 모두 추정 → 응답 크기 ↓
+            const fromBlock = Math.max(0, currentBlock - Math.ceil((now - startTs) / blockTime) - 200);
+            const toBlock = endTs >= now
+                ? 'latest'
+                : Math.min(currentBlock, currentBlock - Math.floor((now - endTs) / blockTime) + 200);
+
             const TRANSFER_TOPIC_LOCAL = '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef';
 
-            // wallet별 병렬 조회
+            // wallet별 병렬 getLogs
             const promises = wallets.map(async (wallet) => {
                 const paddedWallet = '0x' + wallet.address.slice(2).toLowerCase().padStart(64, '0');
                 try {
@@ -4318,7 +4323,7 @@
                         address: currentToken,
                         topics: [TRANSFER_TOPIC_LOCAL, paddedWallet, null],
                         fromBlock: fromBlock,
-                        toBlock: 'latest'
+                        toBlock: toBlock
                     });
                     return { wallet, logs };
                 } catch (e) {
@@ -4328,6 +4333,18 @@
             });
             const results = await Promise.allSettled(promises);
 
+            // 가속화: 모든 unique 블록 번호의 timestamp를 병렬로 미리 조회
+            const allBlocks = new Set();
+            for (const r of results) {
+                if (r.status === 'fulfilled') {
+                    r.value.logs.forEach(log => allBlocks.add(log.blockNumber));
+                }
+            }
+            await Promise.all(
+                [...allBlocks].map(bn => getBlockTimestamp(provider, bn))
+            );
+
+            // 이제 timestamp는 모두 캐시에 있음 - 즉시 조회 가능
             const walletStats = {};
             let grandTotal = 0;
             let grandCount = 0;
@@ -4338,8 +4355,8 @@
                 const { wallet, logs } = r.value;
                 walletStats[wallet.address] = { name: wallet.name, totalAmount: 0, count: 0 };
                 for (const log of logs) {
-                    const ts = await getBlockTimestamp(provider, log.blockNumber);
-                    if (ts < startTs || ts > endTs) continue;
+                    const ts = blockTimestampCache.get(log.blockNumber);  // 캐시에서 즉시 조회
+                    if (!ts || ts < startTs || ts > endTs) continue;
                     const amount = parseFloat(ethers.BigNumber.from(log.data).toString()) / Math.pow(10, tokenDecimals);
                     const toAddr = '0x' + log.topics[2].slice(26);
                     walletStats[wallet.address].totalAmount += amount;
@@ -4756,3 +4773,4 @@
     </script>
 </body>
 </html>
+

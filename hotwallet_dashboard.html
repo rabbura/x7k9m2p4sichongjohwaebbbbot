@@ -3093,12 +3093,17 @@
                 document.getElementById('lastUpdate').textContent = statusText;
                 updateWithdrawalStatus(statusText);
 
-                const allLogs = await provider.getLogs({
-                    address: currentToken,
-                    topics: [TRANSFER_TOPIC_LOCAL, paddedWallets, null],
-                    fromBlock,
-                    toBlock: 'latest'
-                });
+                // 8초 timeout - 응답 없으면 폴백으로
+                const allLogs = await Promise.race([
+                    provider.getLogs({
+                        address: currentToken,
+                        topics: [TRANSFER_TOPIC_LOCAL, paddedWallets, null],
+                        fromBlock,
+                        toBlock: 'latest'
+                    }),
+                    new Promise((_, rej) => setTimeout(() => rej(new Error('batch getLogs timeout')), 8000))
+                ]);
+                console.log(`[BatchLogs] ${allLogs.length}건의 transfer 로그 받음 (1번 호출)`);
 
                 // wallet별 가장 최근 log 매핑
                 const walletLatest = {};
@@ -4823,5 +4828,6 @@
     </script>
 </body>
 </html>
+
 
 

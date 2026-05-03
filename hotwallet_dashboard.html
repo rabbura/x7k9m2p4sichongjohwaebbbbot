@@ -2819,21 +2819,20 @@
             const consensusRaw = sorted[0][0];
             const consensusCount = sorted[0][1];
 
-            // 합의 안 됨 (모든 RPC가 다른 값)
+            // 합의 안 됨 (모든 RPC가 다른 값) → 최댓값 채택
+            // (작은 값 잘못 채택 방지 - 폭주는 아래 sanity check 1~3에서 차단)
             if (consensusCount < 2 && successful.length >= 2) {
-                console.warn('[getBalance] RPC들 결과 불일치 - 가장 작은 값 채택', {
+                console.warn('[getBalance] RPC들 결과 불일치 - 최댓값 채택 (폭주는 sanity가 차단)', {
                     wallet, tokenContract,
                     results: successful.map(s => ({ rpc: s.rpcUrl, raw: s.raw }))
                 });
-                // 가장 작은 raw 값 채택 (폭주 방지)
-                const minRaw = successful.reduce((min, s) => {
+                const maxRaw = successful.reduce((max, s) => {
                     try {
-                        return ethers.BigNumber.from(s.raw).lt(ethers.BigNumber.from(min)) ? s.raw : min;
-                    } catch { return min; }
+                        return ethers.BigNumber.from(s.raw).gt(ethers.BigNumber.from(max)) ? s.raw : max;
+                    } catch { return max; }
                 }, successful[0].raw);
-                const formatted = parseFloat(ethers.utils.formatUnits(minRaw, tokenDecimals));
-                balanceCache.set(wallet, formatted);
-                return formatted;
+                // 합의 raw를 consensusRaw로 두고 아래 통합 sanity check를 거치도록 fall-through
+                sorted[0] = [maxRaw, 1];
             }
 
             const formatted = parseFloat(ethers.utils.formatUnits(consensusRaw, tokenDecimals));
@@ -2862,10 +2861,11 @@
                 return balanceCache.get(wallet) || 0;
             }
 
-            // Sanity check 4: 이전 잔고 대비 100배 이상 변동 의심
+            // Sanity check 4: 이전 잔고 대비 10000배 이상 변동만 차단 (정상 변동 허용)
+            // (폭주는 sanity 1~3이 이미 차단했으므로 관대하게)
             const previous = balanceCache.get(wallet);
-            if (previous !== undefined && previous > 0 && formatted > previous * 100) {
-                console.warn('[getBalance] 이전 대비 100배 이상 증가 - 이전 값 유지', {
+            if (previous !== undefined && previous > 0 && formatted > previous * 10000) {
+                console.warn('[getBalance] 이전 대비 10000배 이상 증가 - 이전 값 유지', {
                     wallet, previous, current: formatted, ratio: formatted / previous
                 });
                 return previous;

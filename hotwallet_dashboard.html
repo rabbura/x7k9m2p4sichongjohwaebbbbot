@@ -3201,7 +3201,7 @@
                 const racePromises = chainConfig.rpcUrls.map(async (rpcUrl) => {
                     const p = new ethers.providers.JsonRpcProvider(rpcUrl);
                     const currentBlock = await p.getBlockNumber();
-                    const fromBlock = Math.max(0, currentBlock - 1000);  // ~3.5시간 분량 (속도 우선)
+                    const fromBlock = Math.max(0, currentBlock - 7200);  // ~24시간 분량 (게이트 같은 느린 토큰 커버)
                     const logs = await p.getLogs({
                         address: currentToken,
                         topics: [TRANSFER_TOPIC_LOCAL, paddedWallets, null],
@@ -4981,6 +4981,7 @@
     </script>
 </body>
 </html>
+
 
 
 

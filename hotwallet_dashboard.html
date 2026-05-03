@@ -2832,14 +2832,17 @@
             const chainConfig = CONFIG.chains[chain];
             const abi = ["function balanceOf(address) view returns (uint256)"];
 
-            // 상위 3개 RPC 병렬 호출 (BatchProvider로 동일 tick 호출 묶음)
-            const rpcsToTry = chainConfig.rpcUrls.slice(0, 3);
+            // 상위 2개 RPC만 호출 (속도 ↑ - sanity check 4중이라 안전)
+            const rpcsToTry = chainConfig.rpcUrls.slice(0, 2);
             const promises = rpcsToTry.map(async rpcUrl => {
                 try {
-                    // 단순 JsonRpcProvider (BatchProvider는 일부 RPC에서 호환 문제)
                     const provider = new ethers.providers.JsonRpcProvider(rpcUrl);
                     const contract = new ethers.Contract(tokenContract, abi, provider);
-                    const balance = await contract.balanceOf(wallet);
+                    // 5초 timeout으로 느린 RPC 빠르게 패스
+                    const balance = await Promise.race([
+                        contract.balanceOf(wallet),
+                        new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 5000))
+                    ]);
                     return { rpcUrl, raw: balance.toString(), ok: true };
                 } catch (e) {
                     return { rpcUrl, ok: false, error: e.message };

@@ -2905,7 +2905,8 @@
             // 로그 조회 헬퍼
             async function tryGetLogs(provider) {
                 const currentBlock = await provider.getBlockNumber();
-                const fromBlock = Math.max(0, currentBlock - 9500);
+                // 5000 블록(~17시간 분량)으로 축소 - 응답 크기 ↓ 속도 ↑
+                const fromBlock = Math.max(0, currentBlock - 5000);
 
                 const logs = await provider.getLogs({
                     address: tokenContract,
@@ -2931,31 +2932,8 @@
 
                 let result = await tryGetLogs(provider);
 
-                // 2차: 로그 0건이면 다른 RPC로 재시도 (캐시된 RPC가 뒤처졌을 수 있음)
-                if (result.logs.length === 0 && chainConfig.rpcUrls) {
-                    for (const rpcUrl of chainConfig.rpcUrls) {
-                        try {
-                            const altProvider = new ethers.providers.JsonRpcProvider(rpcUrl);
-                            const altBlock = await Promise.race([
-                                altProvider.getBlockNumber(),
-                                new Promise((_, reject) => setTimeout(() => reject('timeout'), 3000))
-                            ]);
-                            // 캐시된 provider보다 최신 블록이면 재시도
-                            if (altBlock > result.currentBlock + 2) {
-                                const altResult = await tryGetLogs(altProvider);
-                                if (altResult.logs.length > 0) {
-                                    result = altResult;
-                                    // 더 좋은 provider 발견 → 캐시 교체
-                                    providerCache.set(chain, { provider: altProvider, cachedAt: Date.now(), blockNumber: altBlock });
-                                    console.log(`[출금조회] ${wallet.slice(0,10)}... 대체 RPC로 출금 발견 (block: ${altBlock})`);
-                                    break;
-                                }
-                            }
-                        } catch (e) {
-                            continue;
-                        }
-                    }
-                }
+                // 2차 fallback 제거: 속도 우선
+                // (이전: 0건이면 모든 RPC 재시도 - 비활성 wallet에서 시간 낭비)
 
                 if (result.logs.length === 0) {
                     return null;  // 출금 내역 없음
@@ -3085,9 +3063,9 @@
 
             const modeText = incrementalUpdate ? '증분 갱신' : '전체 조회';
 
-            // RPC 방식은 rate limit이 느슨함 - 5개씩 병렬 처리
-            const batchSize = 5;
-            const delay = 200;
+            // RPC 방식은 rate limit이 느슨함 - 12개씩 병렬 처리 (속도 ↑)
+            const batchSize = 12;
+            const delay = 100;
 
             // 증분 갱신 모드에서 이전에 실패한 주소 우선 처리
             let priorityEntries = [];

@@ -3853,7 +3853,8 @@
                 return currentSort.asc ? valA - valB : valB - valA;
             });
 
-            updateWalletTable();
+            // 정렬 후엔 반드시 forceRedraw=true (인덱스 매칭 버그 방지)
+            updateWalletTable(true);
         }
 
         // ===== 실시간 거래소 가격 조회 시스템 (시총조회봇 기반) =====
@@ -4497,5 +4498,3 @@
     </script>
 </body>
 </html>
-
-

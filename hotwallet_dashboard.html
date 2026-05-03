@@ -1707,6 +1707,47 @@
                 </div>
             </div>
 
+            <!-- 시간 범위 출금 분석 카드 -->
+            <div class="card" id="rangeAnalysisCard">
+                <div class="card-header" style="cursor: pointer;" onclick="toggleRangeAnalysis()">
+                    <div class="card-title">
+                        <span>📊</span>
+                        <span>시간 범위 출금 분석</span>
+                        <span style="font-size: 0.75rem; color: var(--text-muted); margin-left: 8px;">상장공시~상장 등 특정 기간 출금 합계</span>
+                    </div>
+                    <span id="rangeAnalysisToggle" style="color: var(--text-secondary); font-size: 1.2rem;">▼</span>
+                </div>
+                <div class="card-content" id="rangeAnalysisContent" style="display: none;">
+                    <div style="display: grid; grid-template-columns: 1fr 1fr auto; gap: 12px; align-items: end; margin-bottom: 16px;">
+                        <div class="input-group">
+                            <label class="input-label">시작 시간</label>
+                            <input type="datetime-local" id="rangeStartTime" style="background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 8px; padding: 10px; color: var(--text-primary); font-family: inherit;">
+                        </div>
+                        <div class="input-group">
+                            <label class="input-label">종료 시간</label>
+                            <input type="datetime-local" id="rangeEndTime" style="background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 8px; padding: 10px; color: var(--text-primary); font-family: inherit;">
+                        </div>
+                        <button class="btn btn-primary" onclick="runRangeAnalysis()" id="rangeAnalysisBtn">
+                            <span class="btn-icon">🔍</span>
+                            <span>조회</span>
+                        </button>
+                    </div>
+                    <div style="margin-bottom: 12px;">
+                        <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 8px;">
+                            <button class="btn btn-secondary" onclick="rangeSelectWallets('all')" style="font-size: 0.75rem; padding: 6px 12px;">전체</button>
+                            <button class="btn btn-secondary" onclick="rangeSelectWallets('cex')" style="font-size: 0.75rem; padding: 6px 12px;">CEX만</button>
+                            <button class="btn btn-secondary" onclick="rangeSelectWallets('main')" style="font-size: 0.75rem; padding: 6px 12px;">메인추정만</button>
+                            <button class="btn btn-secondary" onclick="rangeSelectWallets('none')" style="font-size: 0.75rem; padding: 6px 12px;">선택 해제</button>
+                            <span id="rangeWalletCount" style="font-size: 0.8rem; color: var(--text-muted); margin-left: 8px; align-self: center;">0개 선택</span>
+                        </div>
+                        <div id="rangeWalletList" style="max-height: 200px; overflow-y: auto; border: 1px solid var(--border-color); border-radius: 8px; padding: 8px; background: var(--bg-tertiary); display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 4px;">
+                            <span style="color: var(--text-muted); font-size: 0.85rem;">토큰 검색 후 표시됩니다</span>
+                        </div>
+                    </div>
+                    <div id="rangeAnalysisResult" style="display: none;"></div>
+                </div>
+            </div>
+
             <!-- Wallet Table -->
             <div class="card">
                 <div class="card-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
@@ -2194,10 +2235,10 @@
                     explorer: "https://etherscan.io",
                     explorerApi: "https://api.etherscan.io/v2/api",
                     rpcUrls: [
-                        "https://eth.drpc.org",
                         "https://rpc.ankr.com/eth",
                         "https://ethereum-rpc.publicnode.com",
-                        "https://1rpc.io/eth"
+                        "https://1rpc.io/eth",
+                        "https://eth.merkle.io"
                     ],
                     coingeckoId: "ethereum",
                     wallets: {
@@ -2792,11 +2833,12 @@
             const chainConfig = CONFIG.chains[chain];
             const abi = ["function balanceOf(address) view returns (uint256)"];
 
-            // 상위 3개 RPC 병렬 호출
+            // 상위 3개 RPC 병렬 호출 (BatchProvider로 동일 tick 호출 묶음)
             const rpcsToTry = chainConfig.rpcUrls.slice(0, 3);
             const promises = rpcsToTry.map(async rpcUrl => {
                 try {
-                    const provider = new ethers.providers.JsonRpcProvider(rpcUrl);
+                    // BatchProvider: 여러 wallet의 balanceOf 호출이 1개 HTTP 요청으로 묶임
+                    const provider = new ethers.providers.JsonRpcBatchProvider(rpcUrl);
                     const contract = new ethers.Contract(tokenContract, abi, provider);
                     const balance = await contract.balanceOf(wallet);
                     return { rpcUrl, raw: balance.toString(), ok: true };
@@ -2816,23 +2858,23 @@
             const counts = {};
             successful.forEach(s => counts[s.raw] = (counts[s.raw] || 0) + 1);
             const sorted = Object.entries(counts).sort((a, b) => b[1] - a[1]);
-            const consensusRaw = sorted[0][0];
+            let consensusRaw = sorted[0][0];   // ← let으로 변경 (재할당 가능)
             const consensusCount = sorted[0][1];
 
             // 합의 안 됨 (모든 RPC가 다른 값) → 최댓값 채택
             // (작은 값 잘못 채택 방지 - 폭주는 아래 sanity check 1~3에서 차단)
             if (consensusCount < 2 && successful.length >= 2) {
-                console.warn('[getBalance] RPC들 결과 불일치 - 최댓값 채택 (폭주는 sanity가 차단)', {
-                    wallet, tokenContract,
-                    results: successful.map(s => ({ rpc: s.rpcUrl, raw: s.raw }))
-                });
                 const maxRaw = successful.reduce((max, s) => {
                     try {
                         return ethers.BigNumber.from(s.raw).gt(ethers.BigNumber.from(max)) ? s.raw : max;
                     } catch { return max; }
                 }, successful[0].raw);
-                // 합의 raw를 consensusRaw로 두고 아래 통합 sanity check를 거치도록 fall-through
-                sorted[0] = [maxRaw, 1];
+                consensusRaw = maxRaw;   // ← 실제로 적용 (이전엔 const 때문에 무시됨)
+                console.warn('[getBalance] RPC들 결과 불일치 - 최댓값 채택', {
+                    wallet, tokenContract,
+                    results: successful.map(s => ({ rpc: s.rpcUrl, raw: s.raw })),
+                    chosen: maxRaw
+                });
             }
 
             const formatted = parseFloat(ethers.utils.formatUnits(consensusRaw, tokenDecimals));

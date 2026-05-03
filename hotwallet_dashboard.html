@@ -3095,7 +3095,7 @@
                 const racePromises = chainConfig.rpcUrls.map(async (rpcUrl) => {
                     const p = new ethers.providers.JsonRpcProvider(rpcUrl);
                     const currentBlock = await p.getBlockNumber();
-                    const fromBlock = Math.max(0, currentBlock - 2000);
+                    const fromBlock = Math.max(0, currentBlock - 1000);  // ~3.5시간 분량 (속도 우선)
                     const logs = await p.getLogs({
                         address: currentToken,
                         topics: [TRANSFER_TOPIC_LOCAL, paddedWallets, null],
@@ -4771,8 +4771,12 @@
                 // DEX 조회 Promise (체크 시에만)
                 const dexPromise = includeDex ? fetchDexLiquidityData() : Promise.resolve(null);
 
-                // 잔고 조회 (출금 내역 제외 - 나중에 백그라운드)
-                await fetchAllWalletData(false, true);  // skipWithdrawal=false, skipSort=true
+                // 잔고 + 출금 동시 시작 (출금이 batch라 잔고와 병렬로 가능 - 속도 ↑)
+                const walletEntriesForWithdrawal = Object.entries(CONFIG.chains[currentChain].wallets);
+                if (!isWithdrawalFetching) {
+                    fetchWithdrawalsInBackground(walletEntriesForWithdrawal, walletEntriesForWithdrawal.length);
+                }
+                await fetchAllWalletData(true, true);  // skipWithdrawal=true (이미 위에서 시작), skipSort=true
 
                 // DEX 데이터 대기 및 추가
                 if (includeDex) {

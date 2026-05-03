@@ -2827,59 +2827,31 @@
         // 이전 잔고 캐시 (자동갱신 시 변동 검증용)
         const balanceCache = new Map();  // wallet -> formatted balance
 
-        // ===== 잔고 조회 (2-RPC consensus + 변동 검증) =====
+        // ===== 잔고 조회 (단일 RPC + sanity check 4중) =====
         async function getBalance(chain, wallet, tokenContract) {
             const chainConfig = CONFIG.chains[chain];
             const abi = ["function balanceOf(address) view returns (uint256)"];
 
-            // 상위 2개 RPC만 호출 (속도 ↑ - sanity check 4중이라 안전)
-            const rpcsToTry = chainConfig.rpcUrls.slice(0, 2);
-            const promises = rpcsToTry.map(async rpcUrl => {
+            // RPC 순차 시도 - 첫 정상 응답 채택 (속도 우선)
+            let formatted = NaN;
+            let usedRpc = '';
+            for (const rpcUrl of chainConfig.rpcUrls) {
                 try {
                     const provider = new ethers.providers.JsonRpcProvider(rpcUrl);
                     const contract = new ethers.Contract(tokenContract, abi, provider);
-                    // 5초 timeout으로 느린 RPC 빠르게 패스
                     const balance = await Promise.race([
                         contract.balanceOf(wallet),
-                        new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 5000))
+                        new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 4000))
                     ]);
-                    return { rpcUrl, raw: balance.toString(), ok: true };
+                    formatted = parseFloat(ethers.utils.formatUnits(balance, tokenDecimals));
+                    usedRpc = rpcUrl;
+                    if (isFinite(formatted) && formatted >= 0 && formatted <= 1e15) break;  // 정상 범위면 사용
                 } catch (e) {
-                    return { rpcUrl, ok: false, error: e.message };
+                    continue;
                 }
-            });
-
-            const results = await Promise.allSettled(promises);
-            const successful = results
-                .filter(r => r.status === 'fulfilled' && r.value.ok)
-                .map(r => r.value);
-
-            if (successful.length === 0) return 0;
-
-            // 다수결: 가장 많이 나온 raw 값 채택 (consensus)
-            const counts = {};
-            successful.forEach(s => counts[s.raw] = (counts[s.raw] || 0) + 1);
-            const sorted = Object.entries(counts).sort((a, b) => b[1] - a[1]);
-            let consensusRaw = sorted[0][0];   // ← let으로 변경 (재할당 가능)
-            const consensusCount = sorted[0][1];
-
-            // 합의 안 됨 (모든 RPC가 다른 값) → 최댓값 채택
-            // (작은 값 잘못 채택 방지 - 폭주는 아래 sanity check 1~3에서 차단)
-            if (consensusCount < 2 && successful.length >= 2) {
-                const maxRaw = successful.reduce((max, s) => {
-                    try {
-                        return ethers.BigNumber.from(s.raw).gt(ethers.BigNumber.from(max)) ? s.raw : max;
-                    } catch { return max; }
-                }, successful[0].raw);
-                consensusRaw = maxRaw;   // ← 실제로 적용 (이전엔 const 때문에 무시됨)
-                console.warn('[getBalance] RPC들 결과 불일치 - 최댓값 채택', {
-                    wallet, tokenContract,
-                    results: successful.map(s => ({ rpc: s.rpcUrl, raw: s.raw })),
-                    chosen: maxRaw
-                });
             }
 
-            const formatted = parseFloat(ethers.utils.formatUnits(consensusRaw, tokenDecimals));
+            if (!isFinite(formatted)) return balanceCache.get(wallet) || 0;
 
             // Sanity check 1: 절대값 (>1e15)
             if (!isFinite(formatted) || formatted < 0 || formatted > 1e15) {
@@ -2949,8 +2921,8 @@
             // 로그 조회 헬퍼
             async function tryGetLogs(provider) {
                 const currentBlock = await provider.getBlockNumber();
-                // 3000 블록(~10시간 분량) - 응답 크기 더 ↓ 속도 더 ↑
-                const fromBlock = Math.max(0, currentBlock - 3000);
+                // 2000 블록(~7시간 분량) - 응답 크기 더 ↓ 속도 더 ↑
+                const fromBlock = Math.max(0, currentBlock - 2000);
 
                 const logs = await provider.getLogs({
                     address: tokenContract,
@@ -3107,8 +3079,8 @@
 
             const modeText = incrementalUpdate ? '증분 갱신' : '전체 조회';
 
-            // 공격적 병렬화 - 25개씩 (49 wallet → 2배치로 끝)
-            const batchSize = 25;
+            // 15개씩 병렬 (RPC 부담 ↓ - 25개 동시는 rate limit 위험)
+            const batchSize = 15;
             const delay = 0;
 
             // 증분 갱신 모드에서 이전에 실패한 주소 우선 처리

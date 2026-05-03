@@ -3078,13 +3078,10 @@
             isWithdrawalFetching = true;  // 조회 시작
 
             // 🚀 Batch getLogs 시도: 49 wallet의 모든 transfer 로그를 1번에 받음
+            // 여러 RPC 동시 호출 → 가장 빠른 응답 채택 (속도 ↑)
             try {
-                const provider = await getProvider(currentChain);
-                if (!provider) throw new Error('Provider 없음');
-                const currentBlock = await provider.getBlockNumber();
-                const fromBlock = Math.max(0, currentBlock - 2000);
+                const chainConfig = CONFIG.chains[currentChain];
                 const TRANSFER_TOPIC_LOCAL = '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef';
-
                 const paddedWallets = walletEntries.map(([_, addr]) =>
                     '0x' + addr.slice(2).toLowerCase().padStart(64, '0')
                 );
@@ -3093,17 +3090,29 @@
                 document.getElementById('lastUpdate').textContent = statusText;
                 updateWithdrawalStatus(statusText);
 
-                // 8초 timeout - 응답 없으면 폴백으로
-                const allLogs = await Promise.race([
-                    provider.getLogs({
+                // 모든 RPC에 동시 요청 → 가장 빠른 응답 사용
+                const t0 = Date.now();
+                const racePromises = chainConfig.rpcUrls.map(async (rpcUrl) => {
+                    const p = new ethers.providers.JsonRpcProvider(rpcUrl);
+                    const currentBlock = await p.getBlockNumber();
+                    const fromBlock = Math.max(0, currentBlock - 2000);
+                    const logs = await p.getLogs({
                         address: currentToken,
                         topics: [TRANSFER_TOPIC_LOCAL, paddedWallets, null],
                         fromBlock,
                         toBlock: 'latest'
-                    }),
-                    new Promise((_, rej) => setTimeout(() => rej(new Error('batch getLogs timeout')), 8000))
+                    });
+                    return { provider: p, logs, rpcUrl };
+                });
+
+                const winner = await Promise.race([
+                    Promise.any(racePromises),
+                    new Promise((_, rej) => setTimeout(() => rej(new Error('batch getLogs timeout')), 10000))
                 ]);
-                console.log(`[BatchLogs] ${allLogs.length}건의 transfer 로그 받음 (1번 호출)`);
+
+                const provider = winner.provider;
+                const allLogs = winner.logs;
+                console.log(`[BatchLogs] ${allLogs.length}건 (${winner.rpcUrl}, ${Date.now()-t0}ms)`);
 
                 // wallet별 가장 최근 log 매핑
                 const walletLatest = {};
@@ -4828,6 +4837,5 @@
     </script>
 </body>
 </html>
-
 
 

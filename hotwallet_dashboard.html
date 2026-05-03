@@ -2784,39 +2784,79 @@
             return { name: 'Unknown', symbol: 'UNKNOWN', decimals: 18 };
         }
 
-        // ===== 잔고 조회 =====
+        // 이전 잔고 캐시 (자동갱신 시 변동 검증용)
+        const balanceCache = new Map();  // wallet -> formatted balance
+
+        // ===== 잔고 조회 (2-RPC consensus + 변동 검증) =====
         async function getBalance(chain, wallet, tokenContract) {
             const chainConfig = CONFIG.chains[chain];
+            const abi = ["function balanceOf(address) view returns (uint256)"];
 
-            for (const rpcUrl of chainConfig.rpcUrls) {
+            // 상위 3개 RPC 병렬 호출
+            const rpcsToTry = chainConfig.rpcUrls.slice(0, 3);
+            const promises = rpcsToTry.map(async rpcUrl => {
                 try {
                     const provider = new ethers.providers.JsonRpcProvider(rpcUrl);
-                    const abi = ["function balanceOf(address) view returns (uint256)"];
                     const contract = new ethers.Contract(tokenContract, abi, provider);
-
                     const balance = await contract.balanceOf(wallet);
-                    const formatted = parseFloat(ethers.utils.formatUnits(balance, tokenDecimals));
-
-                    // Sanity check: 비정상으로 큰 값(>1e15) 또는 NaN 차단
-                    // (XCN 등 정상 토큰 잔고는 보통 < 1e12)
-                    if (!isFinite(formatted) || formatted < 0 || formatted > 1e15) {
-                        console.warn('[getBalance] 비정상 잔고 감지 - 다음 RPC로 재시도', {
-                            rpcUrl,
-                            wallet,
-                            tokenContract,
-                            raw: balance.toString(),
-                            tokenDecimals,
-                            formatted
-                        });
-                        continue;
-                    }
-                    return formatted;
+                    return { rpcUrl, raw: balance.toString(), ok: true };
                 } catch (e) {
-                    continue;
+                    return { rpcUrl, ok: false, error: e.message };
                 }
+            });
+
+            const results = await Promise.allSettled(promises);
+            const successful = results
+                .filter(r => r.status === 'fulfilled' && r.value.ok)
+                .map(r => r.value);
+
+            if (successful.length === 0) return 0;
+
+            // 다수결: 가장 많이 나온 raw 값 채택 (consensus)
+            const counts = {};
+            successful.forEach(s => counts[s.raw] = (counts[s.raw] || 0) + 1);
+            const sorted = Object.entries(counts).sort((a, b) => b[1] - a[1]);
+            const consensusRaw = sorted[0][0];
+            const consensusCount = sorted[0][1];
+
+            // 합의 안 됨 (모든 RPC가 다른 값)
+            if (consensusCount < 2 && successful.length >= 2) {
+                console.warn('[getBalance] RPC들 결과 불일치 - 가장 작은 값 채택', {
+                    wallet, tokenContract,
+                    results: successful.map(s => ({ rpc: s.rpcUrl, raw: s.raw }))
+                });
+                // 가장 작은 raw 값 채택 (폭주 방지)
+                const minRaw = successful.reduce((min, s) => {
+                    try {
+                        return ethers.BigNumber.from(s.raw).lt(ethers.BigNumber.from(min)) ? s.raw : min;
+                    } catch { return min; }
+                }, successful[0].raw);
+                const formatted = parseFloat(ethers.utils.formatUnits(minRaw, tokenDecimals));
+                balanceCache.set(wallet, formatted);
+                return formatted;
             }
 
-            return 0;
+            const formatted = parseFloat(ethers.utils.formatUnits(consensusRaw, tokenDecimals));
+
+            // Sanity check 1: 절대값 (>1e15)
+            if (!isFinite(formatted) || formatted < 0 || formatted > 1e15) {
+                console.warn('[getBalance] 비정상 잔고 차단', {
+                    wallet, tokenContract, raw: consensusRaw, tokenDecimals, formatted
+                });
+                return balanceCache.get(wallet) || 0;
+            }
+
+            // Sanity check 2: 이전 잔고 대비 100배 이상 변동 의심
+            const previous = balanceCache.get(wallet);
+            if (previous !== undefined && previous > 0 && formatted > previous * 100) {
+                console.warn('[getBalance] 이전 대비 100배 이상 증가 - 이전 값 유지', {
+                    wallet, previous, current: formatted, ratio: formatted / previous
+                });
+                return previous;
+            }
+
+            balanceCache.set(wallet, formatted);
+            return formatted;
         }
 
         // ===== 출금 내역 조회 =====
@@ -4326,6 +4366,7 @@
 
             // 새 검색 시 캐시 및 데이터 초기화
             withdrawalCache.clear();
+            balanceCache.clear();  // 잔고 캐시도 초기화 (다른 토큰 영향 방지)
             walletData = [];  // DEX 데이터 포함 전체 초기화
 
             try {
